@@ -166,3 +166,110 @@ footer{padding:30px 0 15px;letter-spacing:1.8px}
   .stat-card b{font-size:15px}
   .mobile-nav button{font-size:8px}
 }
+
+
+/* Food diary — quicker entry and clearer nutrition overview */
+.food-intro{padding-bottom:8px}
+.food-summary{
+  margin:12px 0 18px;padding:22px 24px;border-radius:18px;
+  background:linear-gradient(125deg,rgba(34,65,43,.94),rgba(19,35,25,.98) 65%,rgba(18,29,22,.98));
+  border:1px solid rgba(148,222,162,.2);box-shadow:0 14px 38px #0002
+}
+.food-calorie-head{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.food-kicker{display:block;color:#a9c5af;font-size:9px;font-weight:800;letter-spacing:1.5px;margin-bottom:7px}
+.food-calorie-head strong{display:block;font:800 30px Manrope;letter-spacing:-1px}
+.food-calorie-head strong small{font:600 12px 'DM Sans';color:#9fb5a4;letter-spacing:0}
+.food-remaining{text-align:right;font:800 19px Manrope;color:#b9f1c4}
+.food-remaining small{display:block;font:500 10px 'DM Sans';color:#a0b4a5;margin-top:3px}
+.food-calorie-track,.food-macro-track{height:7px;border-radius:20px;background:#07100a99;overflow:hidden}
+.food-calorie-track{margin:17px 0 19px}
+.food-calorie-track span,.food-macro-track span{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,#70d78a,#b5f3c0);transition:width .3s ease}
+.food-macro-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.food-macro>div:first-child{display:flex;justify-content:space-between;gap:6px;align-items:baseline;margin-bottom:8px}
+.food-macro>div:first-child span{font-size:11px;color:#c1d5c5;font-weight:600}
+.food-macro b{font-size:12px;color:#f0f8f1;white-space:nowrap}
+.food-macro b small{font-size:10px;color:#9bb09f;font-weight:500}
+.food-macro-track{height:5px}
+.food-form-panel{padding:25px}
+.food-panel-heading,.food-log-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.food-panel-heading h3,.food-log-heading h3{font:800 19px Manrope;margin:0}
+.food-step,.food-count{font-size:10px;color:#91a397;font-weight:800;letter-spacing:1px}
+.food-label{display:block;margin:22px 0 10px;color:#c4d6c8;font-size:11px;font-weight:700}
+.meal-picker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.meal-chip{
+  min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  min-height:68px;padding:9px 4px;border-radius:12px;background:#101a13;
+  border:1px solid rgba(157,190,168,.14);color:#aabcae;font-size:17px
+}
+.meal-chip span{font-size:10px;font-weight:700;white-space:nowrap}
+.meal-chip:hover{background:#1d3022;border-color:#527b5a}
+.meal-chip.active{background:rgba(121,205,140,.13);border-color:#75c989;color:#b8f1c3;box-shadow:inset 0 0 0 1px #75c98922}
+.food-product-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:13px;margin-top:20px}
+.food-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.food-field>span{font-size:11px;font-weight:700;color:#c2d4c7}
+.food-field>span small{font-size:10px;color:#84998b;font-weight:500}
+.food-field input{width:100%;height:46px;padding:11px 13px;border-radius:11px;background:#0b130e;border:1px solid rgba(157,190,168,.2);color:#eff8f1;outline:none}
+.food-field input:focus{border-color:#8edca0;box-shadow:0 0 0 3px rgba(142,220,160,.1)}
+.food-field input::placeholder{color:#65786b}
+.food-quantity-chips{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:11px 0 23px}
+.food-quantity-chips>span{font-size:10px;color:#91a397;margin-right:3px}
+.food-quantity-chips button{padding:6px 10px;border-radius:8px;background:#101a13;border:1px solid var(--line);color:#a9bbae;font-size:10px;font-weight:700}
+.food-quantity-chips button.active{background:#25432d;border-color:#70bd80;color:#c6f3ce}
+.food-macro-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+.food-macro-heading b{display:block;font-size:13px}
+.food-macro-heading small{display:block;margin-top:4px;color:#91a397;font-size:10px}
+.food-macro-heading>span{font-size:9px;color:#91a397;letter-spacing:.7px}
+.food-input-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.food-kcal-field input{border-color:rgba(142,220,160,.36);background:#102016}
+.food-submit{width:100%;min-height:48px;margin-top:20px;font-size:13px}
+.food-submit span{font-size:17px;margin-right:5px}
+.food-log-panel{padding:23px}
+.food-log-heading{margin-bottom:15px}
+.food-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:35px 15px 25px;border:1px dashed rgba(157,190,168,.2);border-radius:13px}
+.food-empty>span{font-size:30px;margin-bottom:12px}
+.food-empty b{font-size:13px}
+.food-empty p{max-width:300px;margin:7px 0 0;color:#91a397;font-size:11px;line-height:1.5}
+.food-meal-group{padding:14px 0;border-top:1px solid var(--line)}
+.food-meal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.food-meal-title b{font-size:11px;color:#b9edc3}
+.food-meal-title span{font-size:10px;color:#91a397;font-weight:700}
+.food-log-item{display:flex;align-items:center;gap:11px;padding:11px 0}
+.food-log-icon{width:35px;height:35px;flex:0 0 35px;display:grid;place-items:center;border-radius:10px;background:#213328;color:#a6e9b3}
+.food-log-info{flex:1;min-width:0}
+.food-log-info b{display:block;font-size:12px;overflow-wrap:anywhere}
+.food-log-info small{display:block;margin-top:4px;color:#91a397;font-size:9px}
+.food-log-item>strong{white-space:nowrap;font:800 12px Manrope}
+.food-log-item>strong small{font:500 9px 'DM Sans';color:#91a397}
+.food-delete{width:28px;height:28px;flex:0 0 28px;border:1px solid rgba(255,130,115,.16);border-radius:8px;background:#3a211e;color:#ff9f90;font-size:18px;line-height:1}
+.food-delete:hover{background:#592b25}
+@media(max-width:900px){
+ .meal-picker{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .food-input-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ .food-summary{padding:18px 16px;border-radius:15px}
+ .food-calorie-head strong{font-size:27px}
+ .food-macro-grid{gap:10px}
+ .food-macro>div:first-child{display:block}
+ .food-macro>div:first-child span{display:block;margin-bottom:4px;font-size:10px}
+ .food-macro b{font-size:11px}
+ .food-form-panel,.food-log-panel{padding:17px}
+ .food-panel-heading h3,.food-log-heading h3{font-size:17px}
+ .meal-picker{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .meal-chip{min-height:62px}
+ .meal-chip span{font-size:9px}
+ .food-product-row{grid-template-columns:minmax(0,1fr) 105px;gap:9px;margin-top:17px}
+ .food-field input{height:46px;padding:10px}
+ .food-quantity-chips{gap:6px;margin-bottom:18px}
+ .food-quantity-chips>span{width:100%;margin-bottom:2px}
+ .food-quantity-chips button{padding:7px 10px}
+ .food-input-grid{gap:10px}
+ .food-submit{position:sticky;bottom:82px;z-index:1;box-shadow:0 8px 25px #0007}
+ .food-log-item{gap:8px}
+ .food-log-info small{font-size:8px}
+}
+@media(max-width:360px){
+ .food-product-row{grid-template-columns:minmax(0,1fr) 90px}
+ .food-macro-grid{gap:7px}
+ .food-calorie-head strong{font-size:24px}
+}
