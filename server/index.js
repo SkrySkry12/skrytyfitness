@@ -161,6 +161,38 @@ app.get("/api/food/search", auth, async (req, res) => {
   }
 });
 
+app.post("/api/ai/food-estimate", auth, async (req,res) => {
+  try {
+    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
+    const parsed = z.object({
+      name: z.string().trim().min(2).max(180),
+      grams: z.number().finite().min(1).max(5000)
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error:"Podaj nazwę dania i prawidłową gramaturę (1–5000 g)."});
+    const {name,grams}=parsed.data;
+    const result=await fetch("https://api.openai.com/v1/chat/completions",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},
+      body:JSON.stringify({
+        model:process.env.OPENAI_MODEL||"gpt-4o-mini",
+        response_format:{type:"json_object"},
+        messages:[
+          {role:"system",content:"Jesteś asystentem dietetycznym. Szacuj realistyczne wartości odżywcze typowego dania na podstawie polskich zwyczajów kulinarnych. Zwróć wyłącznie JSON: {\\\"kcal\\\": liczba, \\\"protein\\\": liczba, \\\"carbs\\\": liczba, \\\"fat\\\": liczba, \\\"note\\\": \\\"krótka informacja po polsku\\\"}. Wszystkie wartości dotyczą CAŁEJ podanej porcji, nie 100 g. Nie udawaj dokładności: zaznacz, że to szacunek. Kalorie i makroskładniki muszą być ze sobą w przybliżeniu spójne."},
+          {role:"user",content:"Oszacuj typowe danie: "+name+". Masa gotowej porcji: "+grams+" g. Zwróć kalorie, białko, węglowodany i tłuszcze dla całej porcji."}
+        ],
+        temperature:0.2
+      })
+    });
+    const data=await result.json();
+    if(!result.ok)return res.status(502).json({error:"AI nie mogło oszacować dania: "+(data.error?.message||"spróbuj później")});
+    let estimate;
+    try{estimate=JSON.parse(data.choices?.[0]?.message?.content||"{}");}catch{return res.status(502).json({error:"AI zwróciło nieprawidłowe dane. Spróbuj ponownie."});}
+    const values=["kcal","protein","carbs","fat"].map(key=>Number(estimate[key]));
+    if(values.some(v=>!Number.isFinite(v)||v<0||v>10000))return res.status(502).json({error:"AI zwróciło nieprawidłowe wartości odżywcze."});
+    res.json({kcal:Math.round(values[0]),protein:Number(values[1].toFixed(1)),carbs:Number(values[2].toFixed(1)),fat:Number(values[3].toFixed(1)),note:String(estimate.note||"Wartości są orientacyjnym szacunkiem AI.").slice(0,240)});
+  }catch(error){console.error("AI food estimate error",error);res.status(500).json({error:"Nie udało się oszacować wartości dania."});}
+});
+
 app.post("/api/ai/coach", auth, async (req,res) => {
   try {
     if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
