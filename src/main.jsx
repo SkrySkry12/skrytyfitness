@@ -15,7 +15,7 @@ function App() {
  const [login,setLogin]=useState("skryskry"),[password,setPassword]=useState(""),[weight,setWeight]=useState("99"),[waist,setWaist]=useState("");
  const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({});
  async function api(url,opts={}) { const r=await fetch(url,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Wystąpił błąd");return d; }
- async function refresh(){const me=await api("/api/me");setUser(me.authenticated?me:null);if(me.authenticated)setEntries(await api("/api/entries"));setLoading(false);}
+ async function refresh(){const me=await api("/api/me");if(!me.authenticated){setUser(null);setLoading(false);throw new Error("Logowanie nie zostało utrzymane. Sprawdź cookies/sesję albo spróbuj ponownie.");}setUser(me);setEntries(await api("/api/entries"));setLoading(false);}
  useEffect(()=>{refresh().catch(()=>setLoading(false));},[]);
  async function signIn(e){e.preventDefault();setError("");try{await api("/api/login",{method:"POST",body:JSON.stringify({username:login,password})});setPassword("");await refresh()}catch(e){setError(e.message)}}
  async function logout(){await api("/api/logout",{method:"POST"});setUser(null);setEntries([])}
