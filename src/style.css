@@ -10,3 +10,159 @@
 .weight-chart{height:180px;display:flex;align-items:flex-end;gap:12px;padding:18px 4px 4px;border-bottom:1px solid var(--line);overflow-x:auto}.weight-bar{height:100%;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;color:var(--muted);font-size:10px}.weight-bar span{display:block;width:22px;min-height:8px;background:linear-gradient(180deg,#9be2ac,#426c4d);border-radius:6px 6px 2px 2px}.weight-bar b{font-size:10px;color:#edf3ef}.ai-result{white-space:pre-wrap;margin-top:15px;padding:16px;border:1px solid #34533c;border-radius:10px;background:#101a14;color:#dcebe0;font-size:13px;line-height:1.65}
 
 .exercise-link{display:inline-block;margin-top:5px;color:var(--green);font-size:11px;text-decoration:none}.exercise-link:hover{text-decoration:underline}
+
+
+/* Visual refresh — polished dark fitness dashboard */
+:root{
+  color-scheme:dark;
+  --green:#a6f0b5;--green-strong:#65d982;--muted:#91a397;
+  --line:rgba(157,190,168,.14);--surface:#151f19;--surface-2:#1a2920;
+  --shadow:0 18px 55px rgba(0,0,0,.24)
+}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse at 78% 0%,rgba(68,130,81,.15),transparent 34rem),
+    radial-gradient(ellipse at 0% 55%,rgba(35,91,57,.10),transparent 30rem),
+    #0a100d;
+  letter-spacing:.005em
+}
+button{transition:background .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+button:active{transform:translateY(1px)}
+.sidebar{
+  width:248px;padding:30px 18px;
+  background:linear-gradient(180deg,rgba(19,30,23,.98),rgba(13,21,16,.98));
+  border-right:1px solid var(--line);box-shadow:12px 0 45px rgba(0,0,0,.12)
+}
+.brand{font-size:14px;letter-spacing:1.7px;padding:7px 11px 42px}
+.brand svg{width:25px;height:25px;stroke-width:2.5;filter:drop-shadow(0 0 10px #8fe5a955)}
+.sidebar nav{gap:6px}
+.sidebar nav button,.logout{
+  min-height:46px;padding:0 14px;border:1px solid transparent;border-radius:12px;
+  font-size:13px;font-weight:600;color:#9eafa3
+}
+.sidebar nav button svg,.logout svg{opacity:.8}
+.sidebar nav button.active{
+  color:#c9f8d2;background:linear-gradient(100deg,rgba(93,178,112,.2),rgba(93,178,112,.06));
+  border-color:rgba(133,218,151,.16);box-shadow:inset 3px 0 0 var(--green-strong)
+}
+.sidebar nav button:hover,.logout:hover{background:#ffffff09;color:#e8f5eb}
+.main{max-width:1500px;margin-left:248px;padding:34px clamp(22px,4vw,62px) 30px}
+.topbar{border-bottom:1px solid var(--line);padding-bottom:22px}
+.topbar h2{font-size:23px;letter-spacing:-.6px}
+.eyebrow{letter-spacing:1.8px;font-size:9px}
+.pill{
+  padding:8px 13px;font-size:10px;font-weight:800;letter-spacing:.8px;
+  background:rgba(111,194,129,.1);border-color:rgba(111,194,129,.22)
+}
+.welcome{padding:46px 0 28px;align-items:center}
+.welcome h1,.page-intro h1{font-size:clamp(29px,3vw,39px);letter-spacing:-1.5px;line-height:1.12}
+.welcome h1 span{background:linear-gradient(90deg,#b5f4c1,#6ed88a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome .muted{max-width:560px;font-size:14px}
+.hero-stat{
+  min-width:190px;min-height:136px;align-content:center;gap:9px;padding:23px;
+  border-radius:18px;background:linear-gradient(145deg,#203629,#142119);
+  border-color:rgba(153,226,169,.2);box-shadow:var(--shadow);position:relative;overflow:hidden
+}
+.hero-stat:after{content:"";position:absolute;width:130px;height:130px;border-radius:50%;right:-45px;top:-55px;background:#a6f0b512}
+.hero-stat svg{width:21px;height:21px}
+.hero-stat b{font-size:30px;letter-spacing:-1px}
+.stats-grid{gap:14px;margin:18px 0}
+.stat-card,.panel{
+  background:linear-gradient(145deg,rgba(25,38,30,.96),rgba(17,27,21,.98));
+  border:1px solid var(--line);border-radius:17px;box-shadow:0 10px 35px rgba(0,0,0,.12)
+}
+.stat-card{padding:21px;min-height:112px;position:relative;overflow:hidden}
+.stat-card:after{content:"";position:absolute;right:-24px;bottom:-43px;width:95px;height:95px;border-radius:50%;background:rgba(130,207,148,.045)}
+.stat-card span{font-size:9px;font-weight:800;letter-spacing:1.35px;color:#9aafa0}
+.stat-card b{font-size:clamp(18px,2vw,24px);letter-spacing:-.5px}
+.stat-card small{font-size:11px}
+.panel{padding:23px;margin:17px 0}
+.panel h3{font-size:16px;letter-spacing:-.25px;margin-bottom:15px}
+.big-number{font-size:32px;letter-spacing:-1px}
+.tabs{gap:7px;flex-wrap:wrap;margin:17px 0}
+.tabs button,.secondary{
+  padding:10px 15px;border-radius:11px;background:#1b2a20;
+  border:1px solid rgba(153,190,163,.16);color:#c1d7c6;font-size:12px;font-weight:700
+}
+.tabs button:hover,.secondary:hover{background:#263d2d;border-color:#5e946a}
+.tabs button.selected{background:linear-gradient(135deg,#b4f2c0,#83d99a);color:#102016;border-color:transparent;box-shadow:0 5px 18px #8ee6a522}
+.primary{
+  border-radius:11px;padding:12px 18px;font-size:12px;font-weight:800;
+  background:linear-gradient(135deg,#b7f4c3,#82dc99);box-shadow:0 7px 20px rgba(107,205,130,.12)
+}
+.primary:hover{background:linear-gradient(135deg,#c9f9d1,#9be9ad);box-shadow:0 9px 24px #77db9230;transform:translateY(-1px)}
+.exercise,.entry-row{padding:15px 0;border-bottom:1px solid rgba(157,190,168,.11)}
+.exercise b,.entry-row b{font-size:13px;font-weight:700}
+.exercise p,.entry-row p{font-size:11px}
+.exercise-link{font-weight:700;font-size:10px;letter-spacing:.2px}
+.done{border-radius:10px;padding:10px 14px;font-size:11px;font-weight:800}
+.form-grid{gap:15px;margin:18px 0}
+.form-grid label,.login-card label{font-size:11px;font-weight:700;letter-spacing:.2px}
+.form-grid input,.form-grid select,.login-card input{
+  min-height:44px;padding:11px 13px;border-radius:11px;
+  background:#0b130e;border:1px solid rgba(157,190,168,.2);color:#eff8f1;
+  transition:border-color .18s,box-shadow .18s
+}
+.form-grid input:focus,.form-grid select:focus,.login-card input:focus{
+  border-color:#8edca0;box-shadow:0 0 0 3px rgba(142,220,160,.1);outline:none
+}
+.report,.ai-result{border-radius:13px;background:#0b140e;border-color:var(--line);font-size:12px}
+.ai-result{border-color:rgba(142,220,160,.25)}
+.error{border-radius:12px}
+.login-shell{
+  background:radial-gradient(ellipse at 50% 20%,rgba(76,145,91,.18),transparent 32rem),#0a100d
+}
+.login-card{
+  width:min(100%,440px);padding:42px;border-radius:24px;
+  background:linear-gradient(145deg,rgba(25,39,30,.98),rgba(14,23,17,.98));
+  border:1px solid rgba(157,190,168,.18);box-shadow:0 30px 100px #0008
+}
+.brand-mark{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:#8fe5a51a;border:1px solid #8fe5a52c}
+.brand-mark svg{width:27px;height:27px}
+.login-card h1{font-size:32px;letter-spacing:-1.2px}
+.login-card .muted{font-size:13px}
+.login-card form{gap:15px}
+.tiny{letter-spacing:1.2px}
+.weight-chart{height:210px;gap:17px;padding-top:20px}
+.weight-bar{min-width:42px}
+.weight-bar span{width:26px;border-radius:8px 8px 3px 3px;box-shadow:0 0 16px #86d99b20}
+footer{padding:30px 0 15px;letter-spacing:1.8px}
+.mobile-nav{
+  background:rgba(18,30,22,.91);border:1px solid rgba(157,190,168,.2);
+  border-radius:18px;padding:8px;box-shadow:0 12px 45px #0009
+}
+.mobile-nav button{font-size:9px;font-weight:700;padding:8px 1px}
+.mobile-nav button.active{background:rgba(128,208,146,.14);color:#b7f1c2}
+@media(min-width:1200px){
+  .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .panel{padding:25px}
+}
+@media(max-width:900px){
+  .sidebar{width:220px}.main{margin-left:220px;padding:26px 24px}
+  .welcome{gap:15px}.hero-stat{min-width:160px}
+}
+@media(max-width:700px){
+  .sidebar{display:none}.main{margin:0;padding:17px 14px 108px}
+  .topbar{padding-bottom:16px}.topbar h2{font-size:18px}
+  .welcome{padding:30px 0 18px;gap:18px}
+  .welcome h1,.page-intro h1{font-size:29px;letter-spacing:-1px}
+  .hero-stat{width:100%;min-height:unset;grid-template-columns:auto 1fr;align-items:center;column-gap:12px;padding:15px 17px}
+  .hero-stat svg{grid-row:span 2}.hero-stat b{font-size:24px}.hero-stat small{font-size:10px}
+  .stats-grid{gap:9px;margin:12px 0}
+  .stat-card{min-height:98px;padding:14px 12px;border-radius:14px}
+  .stat-card span{font-size:8px;letter-spacing:1px}
+  .stat-card b{font-size:17px}
+  .panel{padding:17px;margin:13px 0;border-radius:15px}
+  .panel h3{font-size:15px}
+  .form-grid{gap:12px}
+  .form-grid input,.form-grid select{min-height:46px}
+  .login-card{padding:29px 23px;border-radius:20px}
+  .mobile-nav{left:8px;right:8px;bottom:8px}
+  .weight-chart{gap:12px}
+}
+@media(max-width:370px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .stat-card b{font-size:15px}
+  .mobile-nav button{font-size:8px}
+}
