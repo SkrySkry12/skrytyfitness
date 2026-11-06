@@ -1,6 +1,19 @@
 import pg from "pg";
 const { Pool } = pg;
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined });
+
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error(
+    "Brak DATABASE_URL. Skonfiguruj PostgreSQL w Coolify i ustaw DATABASE_URL na adres bazy (host kontenera/usługi, nie localhost), np. postgresql://fitness:HASLO@postgres:5432/fitness."
+  );
+}
+
+export const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000
+});
 
 export async function initDb() {
   await pool.query(`
