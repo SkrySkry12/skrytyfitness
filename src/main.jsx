@@ -14,7 +14,7 @@ const nav = [["dashboard","Przegląd",Home],["training","Trening",Dumbbell],["fo
 function App() {
  const [user,setUser]=useState(null),[page,setPage]=useState("dashboard"),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const [login,setLogin]=useState("skryskry"),[password,setPassword]=useState(""),[weight,setWeight]=useState("99"),[waist,setWaist]=useState("");
- const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({});
+ const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({}),[currentPassword,setCurrentPassword]=useState(""),[newPassword,setNewPassword]=useState(""),[passwordMessage,setPasswordMessage]=useState(""),[aiAnalysis,setAiAnalysis]=useState(""),[aiLoading,setAiLoading]=useState(false);
  async function api(url,opts={}) { const r=await fetch(url,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Wystąpił błąd");return d; }
  async function refresh(){const me=await api("/api/me");if(!me.authenticated){setUser(null);setLoading(false);throw new Error("Logowanie nie zostało utrzymane. Sprawdź cookies/sesję albo spróbuj ponownie.");}setUser(me);setEntries(await api("/api/entries"));setLoading(false);}
  useEffect(()=>{refresh().catch(()=>setLoading(false));},[]);
@@ -26,6 +26,15 @@ function App() {
  const todayFood=byKind("food").filter(e=>e.entry_date?.slice(0,10)===today());
  const totals=todayFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0),c:a.c+Number(e.data.carbs||0),f:a.f+Number(e.data.fat||0)}),{kcal:0,p:0,c:0,f:0});
  const waterToday=byKind("water").filter(e=>e.entry_date?.slice(0,10)===today()).reduce((s,e)=>s+Number(e.data.ml||0),0);
+ const weekStart=new Date();weekStart.setDate(weekStart.getDate()-6);weekStart.setHours(0,0,0,0);
+ const weekEntries=entries.filter(e=>new Date(e.entry_date).getTime()>=weekStart.getTime());
+ const weekFood=weekEntries.filter(e=>e.kind==="food");
+ const weekTotals=weekFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0)}),{kcal:0,p:0});
+ const weekWater=weekEntries.filter(e=>e.kind==="water").reduce((s,e)=>s+Number(e.data.ml||0),0);
+ const weekWorkouts=weekEntries.filter(e=>e.kind==="workout").length;
+ const weekWeights=weekEntries.filter(e=>e.kind==="weight").sort((a,b)=>new Date(a.entry_date)-new Date(b.entry_date));
+ const weeklyReport="SKR FITNESS — RAPORT 7 DNI\\nOkres: "+weekStart.toLocaleDateString("pl-PL")+" – "+new Date().toLocaleDateString("pl-PL")+"\\nProdukty zapisane: "+weekFood.length+"\\nŚrednie kalorie na dzień z wpisami: "+(weekFood.length?Math.round(weekTotals.kcal/Math.max(1,new Set(weekFood.map(e=>e.entry_date.slice(0,10))).size)):0)+" kcal\\nBiałko łącznie: "+Math.round(weekTotals.p)+" g\\nWoda łącznie: "+(weekWater/1000).toFixed(1)+" l\\nTreningi zapisane: "+weekWorkouts+"\\nPomiary: "+weekWeights.map(e=>e.data.kg+" kg ("+e.entry_date.slice(0,10)+")").join(", ");
+
  if(loading)return <div className="loading">SKR<span>FITNESS</span></div>;
  if(!user)return <main className="login-shell"><div className="login-card"><div className="brand-mark"><Activity/></div><p className="eyebrow">YOUR PERSONAL TRANSFORMATION</p><h1>SkrySkry <span>Fitness</span></h1><p className="muted">Zaloguj się, aby przejść do swojego panelu.</p><form onSubmit={signIn}><label>Login<input value={login} onChange={e=>setLogin(e.target.value)} autoComplete="username"/></label><label>Hasło<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/></label><button className="primary full">Zaloguj się</button></form>{error&&<p className="error">{error}</p>}<p className="tiny">SKR FITNESS · TWOJA DROGA DO 88 KG</p></div></main>;
  return <div className="app"><aside className="sidebar"><div className="brand"><Activity/><b>SKR FITNESS</b></div><nav>{nav.map(([id,label,Icon])=><button key={id} className={page===id?"active":""} onClick={()=>setPage(id)}><Icon size={18}/>{label}</button>)}</nav><button className="logout" onClick={logout}><LogOut size={18}/> Wyloguj</button></aside><main className="main"><header className="topbar"><div><p className="eyebrow">TWÓJ PLAN • {today()}</p><h2>{nav.find(n=>n[0]===page)?.[1]||"Przegląd"}</h2></div><span className="pill">CEL: 88 KG</span></header>
