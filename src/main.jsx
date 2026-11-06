@@ -27,7 +27,8 @@ function App() {
  const totals=todayFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0),c:a.c+Number(e.data.carbs||0),f:a.f+Number(e.data.fat||0)}),{kcal:0,p:0,c:0,f:0});
  const waterToday=byKind("water").filter(e=>e.entry_date?.slice(0,10)===today()).reduce((s,e)=>s+Number(e.data.ml||0),0);
  const weekStart=new Date();weekStart.setDate(weekStart.getDate()-6);weekStart.setHours(0,0,0,0);
- const weekEntries=entries.filter(e=>new Date(e.entry_date).getTime()>=weekStart.getTime());
+ const weekStartKey=[weekStart.getFullYear(),String(weekStart.getMonth()+1).padStart(2,"0"),String(weekStart.getDate()).padStart(2,"0")].join("-");
+ const weekEntries=entries.filter(e=>e.entry_date?.slice(0,10)>=weekStartKey&&e.entry_date?.slice(0,10)<=today());
  const weekFood=weekEntries.filter(e=>e.kind==="food");
  const weekTotals=weekFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0)}),{kcal:0,p:0});
  const weekWater=weekEntries.filter(e=>e.kind==="water").reduce((s,e)=>s+Number(e.data.ml||0),0);
