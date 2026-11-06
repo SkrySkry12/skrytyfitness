@@ -65,14 +65,14 @@ app.get("/api/entries", auth, async (req, res) => {
 
 app.post("/api/entries", auth, async (req, res) => {
   const parsed = z.object({
-    date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+    date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
     kind: z.enum(["weight","waist","water","food","workout","note"]),
     data: z.record(z.any())
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Nieprawidłowe dane wpisu." });
   const result = await pool.query(
-    "INSERT INTO entries(user_id,entry_date,kind,data) VALUES($1,$2,$3,$4) RETURNING id,entry_date,kind,data,created_at",
-    [req.session.userId, parsed.data.date, parsed.data.kind, JSON.stringify(parsed.data.data)]
+    "INSERT INTO entries(user_id,entry_date,kind,data) VALUES($1,COALESCE($2::date,CURRENT_DATE),$3,$4) RETURNING id,entry_date,kind,data,created_at",
+    [req.session.userId, parsed.data.date || null, parsed.data.kind, JSON.stringify(parsed.data.data)]
   );
   res.status(201).json(result.rows[0]);
 });
