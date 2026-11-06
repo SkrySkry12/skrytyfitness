@@ -88,6 +88,18 @@ app.get("/api/export", auth, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), entries: result.rows });
 });
 
+app.post("/api/ai/coach", auth, async (req,res) => {
+  try {
+    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
+    const parsed = z.object({report:z.string().min(1).max(20000)}).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error:"Brak danych raportu."});
+    const result = await fetch("https://api.openai.com/v1/chat/completions", {method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:process.env.OPENAI_MODEL||"gpt-4o-mini",messages:[{role:"system",content:"Jesteś rozsądnym trenerem i edukatorem żywieniowym. Odpowiadaj po polsku, bez zawstydzania, bez skrajnych diet. Uwzględnij regenerację, ból i bezpieczeństwo. Podaj mocne strony, obszary do poprawy i trzy konkretne kroki."},{role:"user",content:parsed.data.report}]})});
+    const data = await result.json();
+    if (!result.ok) return res.status(502).json({error:"Usługa AI zwróciła błąd: "+(data.error?.message||"spróbuj później")});
+    res.json({analysis:data.choices?.[0]?.message?.content||"Brak odpowiedzi AI."});
+  } catch (error) { console.error("AI analysis error",error); res.status(500).json({error:"Nie udało się wykonać analizy AI."}); }
+});
+
 app.use(express.static(path.join(__dirname, "../dist")));
 app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "../dist/index.html")));
 
