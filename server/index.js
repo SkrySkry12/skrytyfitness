@@ -88,6 +88,32 @@ app.get("/api/export", auth, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), entries: result.rows });
 });
 
+app.get("/api/food/barcode/:code", auth, async (req,res) => {
+  try {
+    const code = String(req.params.code || "");
+    if (!/^\\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
+    const response = await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,brands,quantity,code,nutriments,image_front_small_url", {
+      headers: { "User-Agent": "SkrySkryFitness/1.0 (food diary; contact: support@skryskry.pl)" },
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!response.ok) return res.status(502).json({ error: "Baza produktów jest chwilowo niedostępna." });
+    const payload = await response.json();
+    if (payload.status !== 1 || !payload.product) return res.json({ product: null, source: "Open Food Facts" });
+    const product = payload.product, n = product.nutriments || {};
+    const kcal = Number(n["energy-kcal_100g"] ?? n["energy-kcal_value"] ?? (Number(n["energy_100g"]) / 4.184));
+    if (!product.product_name || !Number.isFinite(kcal) || kcal < 0) return res.json({ product: null, source: "Open Food Facts" });
+    res.json({ product: {
+      name: [product.product_name, product.brands].filter(Boolean).join(" · ").slice(0,160),
+      quantity: product.quantity || "", kcal: Math.round(kcal),
+      protein: Number(n.proteins_100g || 0), carbs: Number(n.carbohydrates_100g || 0),
+      fat: Number(n.fat_100g || 0), image: product.image_front_small_url || null, barcode: product.code || code
+    }, source: "Open Food Facts" });
+  } catch (error) {
+    console.error("Food barcode lookup error", error);
+    res.status(502).json({ error: "Nie udało się wyszukać kodu. Spróbuj ponownie." });
+  }
+});
+
 app.get("/api/food/search", auth, async (req, res) => {
   try {
     const query = z.string().trim().min(2).max(100).safeParse(String(req.query.q || ""));
