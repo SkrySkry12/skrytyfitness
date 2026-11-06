@@ -314,3 +314,6 @@ footer{padding:30px 0 15px;letter-spacing:1.8px}
  .food-result-name b{font-size:10px}
  .food-result-name small{font-size:8px}
 }
+
+/* Barcode lookup and camera scanner */
+.barcode-tools{display:flex;gap:8px;align-items:stretch;margin-top:9px;flex-wrap:wrap}.barcode-form{display:flex;gap:7px;flex:1;min-width:min(100%,280px)}.barcode-form input{flex:1;min-width:0;height:42px;padding:10px 12px;border-radius:9px;background:#0b130e;border:1px solid rgba(157,190,168,.2);color:#eff8f1;outline:none}.barcode-form button,.barcode-camera{display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}.barcode-scanner{margin-top:12px;padding:12px;border:1px solid rgba(157,190,168,.18);border-radius:12px;background:#0b130e}.barcode-scanner small{display:block;color:var(--muted);font-size:10px;margin-top:8px}.barcode-scanner #food-barcode-reader{width:100%;max-width:520px;margin:auto;overflow:hidden;border-radius:9px}.barcode-scanner video{max-width:100%;border-radius:8px}.barcode-scanner button{background:#263a2b;color:#b2e6be;border:1px solid var(--line);border-radius:8px;padding:7px 10px}@media(max-width:560px){.barcode-tools,.barcode-form{width:100%}.barcode-camera{width:100%}.barcode-form button{font-size:10px;padding:9px}}
