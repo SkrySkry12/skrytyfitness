@@ -65,7 +65,7 @@ app.get("/api/entries", auth, async (req, res) => {
 
 app.post("/api/entries", auth, async (req, res) => {
   const parsed = z.object({
-    date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     kind: z.enum(["weight","waist","water","food","workout","note"]),
     data: z.record(z.any())
   }).safeParse(req.body);
@@ -91,7 +91,7 @@ app.get("/api/export", auth, async (req, res) => {
 app.get("/api/food/barcode/:code", auth, async (req,res) => {
   try {
     const code = String(req.params.code || "");
-    if (!/^\\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
+    if (!/^\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
     const response = await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,brands,quantity,code,nutriments,image_front_small_url", {
       headers: { "User-Agent": "SkrySkryFitness/1.0 (food diary; contact: support@skryskry.pl)" },
       signal: AbortSignal.timeout(9000)
