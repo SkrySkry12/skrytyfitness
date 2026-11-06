@@ -88,6 +88,41 @@ app.get("/api/export", auth, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), entries: result.rows });
 });
 
+app.get("/api/food/search", auth, async (req, res) => {
+  try {
+    const query = z.string().trim().min(2).max(100).safeParse(String(req.query.q || ""));
+    if (!query.success) return res.status(400).json({ error: "Wpisz co najmniej 2 znaki." });
+    const url = new URL("https://world.openfoodfacts.org/api/v2/search");
+    url.searchParams.set("search_terms", query.data);
+    url.searchParams.set("page_size", "10");
+    url.searchParams.set("fields", "product_name,brands,quantity,code,nutriments,image_front_small_url");
+    const response = await fetch(url, {
+      headers: { "User-Agent": "SkrySkryFitness/1.0 (food diary; contact: support@skryskry.pl)" },
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!response.ok) return res.status(502).json({ error: "Baza produktów jest chwilowo niedostępna." });
+    const payload = await response.json();
+    const products = (payload.products || []).map(product => {
+      const n = product.nutriments || {};
+      const kcal = Number(n["energy-kcal_100g"] ?? n["energy-kcal_value"] ?? (Number(n["energy_100g"]) / 4.184));
+      return {
+        name: [product.product_name, product.brands].filter(Boolean).join(" · ").slice(0, 160),
+        quantity: product.quantity || "",
+        kcal: Number.isFinite(kcal) ? Math.round(kcal) : null,
+        protein: Number(n.proteins_100g || 0),
+        carbs: Number(n.carbohydrates_100g || 0),
+        fat: Number(n.fat_100g || 0),
+        image: product.image_front_small_url || null,
+        barcode: product.code || null
+      };
+    }).filter(p => p.name && p.kcal !== null && p.kcal >= 0);
+    res.json({ products, source: "Open Food Facts" });
+  } catch (error) {
+    console.error("Food search error", error);
+    res.status(502).json({ error: "Nie udało się wyszukać produktu. Spróbuj ponownie." });
+  }
+});
+
 app.post("/api/ai/coach", auth, async (req,res) => {
   try {
     if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
