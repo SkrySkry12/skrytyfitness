@@ -39,6 +39,11 @@ app.post("/api/login", async (req, res) => {
   if (!user || !(await bcrypt.compare(parsed.data.password, user.password_hash))) return res.status(401).json({ error: "Nieprawidłowy login lub hasło." });
   req.session.userId = user.id;
   req.session.username = user.username;
+  // Persist the session before replying, so the browser receives a usable session cookie.
+  await new Promise((resolve, reject) => {
+    req.session.save(err => err ? reject(err) : resolve());
+  });
+  console.log(`Successful login for user: ${user.username}`);
   res.json({ ok: true, username: user.username });
 });
 
