@@ -2,7 +2,7 @@ name: Build and validate
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/sleeper-build-2.0]
   pull_request:
     branches: [main]
 
