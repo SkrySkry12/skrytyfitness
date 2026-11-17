@@ -650,3 +650,59 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
 .history-exercise{display:grid;gap:3px;padding:8px 0}
 .history-exercise b{font-size:12px;color:#dce9fb}
 .history-exercise span{font-size:10px;color:#9db2d1;line-height:1.5}
+
+
+/* Interactive workout calendar */
+.workout-calendar-panel{border-color:rgba(117,170,255,.22);background:linear-gradient(145deg,rgba(19,34,55,.98),rgba(10,22,38,.98))}
+.calendar-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.calendar-heading h3{margin:0;text-transform:capitalize;color:#eaf2ff}
+.calendar-arrow{width:38px;height:38px;border-radius:12px;border:1px solid rgba(151,181,229,.2);background:rgba(117,170,255,.12);color:#c6dcff;font-size:25px;line-height:1;cursor:pointer}
+.workout-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.calendar-weekdays{margin-bottom:7px}
+.calendar-weekdays span{text-align:center;color:#8299ba;font-size:10px;font-weight:900;padding:6px 0}
+.calendar-day{min-width:0;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(151,181,229,.1);border-radius:12px;background:rgba(4,13,25,.45);color:#dbe8fb;cursor:pointer;padding:5px 2px}
+.calendar-day b{font-size:13px}
+.calendar-day small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:#9be8b4}
+.calendar-day.has-workout{border-color:rgba(140,232,173,.35);background:rgba(45,105,76,.18)}
+.calendar-day.selected{outline:2px solid #75aaff;background:rgba(57,103,169,.32)}
+.calendar-day.today b{color:#8ce8ad}
+.calendar-empty{min-height:58px}
+.calendar-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;color:#91a8c9;font-size:10px}
+.calendar-legend span{display:flex;align-items:center;gap:6px}
+.legend-dot{width:8px;height:8px;border-radius:50%;background:#8ce8ad}
+.selected-dot{background:#75aaff}
+.calendar-date-input{max-width:145px;min-width:0;background:#091426;border:1px solid rgba(151,181,229,.2);color:#edf4ff;border-radius:10px;padding:9px;font:inherit;color-scheme:dark}
+.reps-stepper{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;gap:4px;min-width:0}
+.reps-stepper button{border:1px solid rgba(117,170,255,.24);border-radius:9px;background:rgba(117,170,255,.13);color:#c5dcff;font-size:19px;line-height:1;min-width:0;cursor:pointer}
+.reps-stepper input{width:100%;min-width:0;text-align:center;box-sizing:border-box;background:#091426;border:1px solid rgba(151,181,229,.2);border-radius:9px;padding:9px 3px;color:#f0f6ff;font:inherit;font-size:13px;color-scheme:dark}
+.calendar-history-link{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;padding:13px 0;border:0;border-bottom:1px solid rgba(151,181,229,.12);background:transparent;color:#c9dcf8;cursor:pointer}
+.calendar-history-link>span:first-child{display:grid;gap:4px}
+.calendar-history-link small{font-size:10px;color:#91a8c9}
+.calendar-history-link>span:last-child{font-size:10px;color:#9ec5ff;white-space:nowrap}
+@media(max-width:420px){
+ .workout-calendar-grid{gap:4px}
+ .calendar-day{min-height:50px;border-radius:9px}
+ .calendar-day b{font-size:12px}
+ .calendar-day small{font-size:7px}
+ .calendar-date-input{max-width:125px;font-size:11px}
+ .set-log-label,.set-log-row{grid-template-columns:29px minmax(0,.85fr) minmax(0,1.15fr);gap:5px}
+ .reps-stepper{grid-template-columns:25px minmax(0,1fr) 25px;gap:3px}
+}
+
+
+/* Set completion and user-added exercise controls */
+.set-log-label,.set-log-row{grid-template-columns:38px minmax(0,1fr) minmax(0,1.2fr) 44px}
+.set-done-toggle{width:38px;height:36px;border-radius:11px;border:1px solid rgba(151,181,229,.24);background:rgba(117,170,255,.1);color:#9fb4d4;font-size:20px;font-weight:900;cursor:pointer}
+.set-done-toggle.done{background:rgba(140,232,173,.16);border-color:rgba(140,232,173,.5);color:#8ce8ad;box-shadow:0 0 14px rgba(140,232,173,.1)}
+.custom-exercise-form{margin:20px 0 14px;padding:15px;border:1px dashed rgba(117,170,255,.3);border-radius:16px;background:rgba(117,170,255,.055)}
+.custom-exercise-form h3{margin:0 0 12px;font-size:14px}
+.custom-exercise-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.7fr);gap:9px}
+.custom-exercise-fields input,.custom-exercise-fields select{width:100%;min-width:0;box-sizing:border-box;background:#091426;border:1px solid rgba(151,181,229,.2);border-radius:10px;padding:11px;color:#edf4ff;font:inherit;font-size:12px;color-scheme:dark}
+.custom-exercise-fields button{grid-column:1/-1;justify-self:start}
+.set-done-toggle:focus-visible,.calendar-day:focus-visible,.calendar-arrow:focus-visible{outline:2px solid #8abaff;outline-offset:2px}
+@media(max-width:420px){
+ .set-log-label,.set-log-row{grid-template-columns:26px minmax(0,.85fr) minmax(0,1.15fr) 32px;gap:4px}
+ .set-done-toggle{width:30px;height:34px;font-size:17px}
+ .custom-exercise-fields{grid-template-columns:1fr}
+ .custom-exercise-fields button{grid-column:auto;width:100%}
+}
