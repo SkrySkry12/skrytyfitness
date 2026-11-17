@@ -3,6 +3,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
 import bcrypt from "bcryptjs";
+import webpush from "web-push";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -56,6 +57,51 @@ app.post("/api/change-password", auth, async (req, res) => {
   if (!(await bcrypt.compare(parsed.data.currentPassword, u.rows[0].password_hash))) return res.status(400).json({ error: "Obecne hasło jest nieprawidłowe." });
   await pool.query("UPDATE users SET password_hash=$1 WHERE id=$2", [await bcrypt.hash(parsed.data.newPassword, 12), req.session.userId]);
   res.json({ ok: true });
+});
+
+
+app.get("/api/settings", auth, async (req,res) => {
+  const result = await pool.query("SELECT settings FROM user_settings WHERE user_id=$1", [req.session.userId]);
+  res.json({settings: result.rows[0]?.settings || {}});
+});
+
+app.put("/api/settings", auth, async (req,res) => {
+  const parsed = z.record(z.any()).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({error:"Nieprawidłowe ustawienia."});
+  await pool.query(
+    "INSERT INTO user_settings(user_id,settings) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET settings=EXCLUDED.settings, updated_at=NOW()",
+    [req.session.userId, JSON.stringify(parsed.data)]
+  );
+  res.json({ok:true,settings:parsed.data});
+});
+
+app.get("/api/push/public-key", auth, (_req,res) => {
+  res.json({publicKey: process.env.VAPID_PUBLIC_KEY || null});
+});
+
+app.get("/api/push/status", auth, async (req,res) => {
+  const result = await pool.query("SELECT EXISTS(SELECT 1 FROM push_subscriptions WHERE user_id=$1) AS enabled", [req.session.userId]);
+  res.json({enabled: Boolean(result.rows[0]?.enabled)});
+});
+
+app.post("/api/push/subscribe", auth, async (req,res) => {
+  const parsed = z.object({
+    endpoint:z.string().url(),
+    keys:z.object({p256dh:z.string().min(1),auth:z.string().min(1)})
+  }).passthrough().safeParse(req.body);
+  if(!parsed.success) return res.status(400).json({error:"Nieprawidłowa subskrypcja powiadomień."});
+  await pool.query(
+    "INSERT INTO push_subscriptions(user_id,endpoint,subscription) VALUES($1,$2,$3) ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,subscription=EXCLUDED.subscription",
+    [req.session.userId, parsed.data.endpoint, JSON.stringify(parsed.data)]
+  );
+  res.json({ok:true});
+});
+
+app.delete("/api/push/subscribe", auth, async (req,res) => {
+  const endpoint = z.string().url().safeParse(req.body?.endpoint);
+  if(!endpoint.success) return res.status(400).json({error:"Brak adresu subskrypcji."});
+  await pool.query("DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2", [req.session.userId, endpoint.data]);
+  res.json({ok:true});
 });
 
 app.get("/api/entries", auth, async (req, res) => {
@@ -216,4 +262,56 @@ if (!adminPassword || adminPassword.length < 12 || adminPassword === "USTAW_TUTA
   const existing = await pool.query("SELECT id FROM users WHERE username=$1", [username]);
   if (!existing.rowCount) await pool.query("INSERT INTO users(username,password_hash) VALUES($1,$2)", [username, await bcrypt.hash(adminPassword, 12)]);
 }
+
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@skryskry.pl";
+const pushConfigured = Boolean(vapidPublicKey && vapidPrivateKey);
+if(pushConfigured) webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+
+let reminderTickRunning = false;
+async function sendScheduledMealReminders() {
+  if(!pushConfigured || reminderTickRunning) return;
+  reminderTickRunning = true;
+  try {
+    const timezone = process.env.APP_TIMEZONE || "Europe/Warsaw";
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone:timezone, year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", hourCycle:"h23"
+    }).formatToParts(new Date()).reduce((acc,p)=>(acc[p.type]=p.value,acc),{});
+    const date = parts.year+"-"+parts.month+"-"+parts.day;
+    const time = parts.hour+":"+parts.minute;
+    const result = await pool.query(
+      "SELECT s.user_id,s.settings,array_agg(p.subscription) AS subscriptions FROM user_settings s JOIN push_subscriptions p ON p.user_id=s.user_id GROUP BY s.user_id,s.settings"
+    );
+    for(const row of result.rows) {
+      const settings = row.settings || {};
+      if(settings.remindersEnabled === false) continue;
+      const meal = (settings.meals || []).find(m=>m.enabled !== false && m.time === time);
+      if(!meal) continue;
+      const claimed = await pool.query(
+        "INSERT INTO push_reminders_sent(user_id,reminder_date,reminder_time) VALUES($1,$2::date,$3) ON CONFLICT DO NOTHING RETURNING user_id",
+        [row.user_id,date,time]
+      );
+      if(!claimed.rowCount) continue;
+      const payload = JSON.stringify({
+        title:"Czas na posiłek 🍽️",
+        body:"Możesz już zjeść: "+String(meal.label || "zaplanowany posiłek")+". Bez presji — potraktuj to jako przypomnienie.",
+        url:"/?page=food"
+      });
+      for(const subscription of row.subscriptions || []) {
+        try { await webpush.sendNotification(subscription,payload); }
+        catch(error) {
+          if(error.statusCode===404 || error.statusCode===410) {
+            await pool.query("DELETE FROM push_subscriptions WHERE endpoint=$1",[subscription.endpoint]);
+          } else console.error("Meal push error",error.message);
+        }
+      }
+    }
+  } catch(error) { console.error("Meal reminder scheduler error",error); }
+  finally { reminderTickRunning = false; }
+}
+setInterval(sendScheduledMealReminders, 60 * 1000);
+setTimeout(sendScheduledMealReminders, 5000);
+
 app.listen(port, "0.0.0.0", () => console.log(`SkrySkry Fitness działa na porcie ${port}`));

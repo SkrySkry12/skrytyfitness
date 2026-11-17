@@ -32,5 +32,24 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS entries_user_date_idx ON entries(user_id, entry_date DESC);
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      subscription JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS push_reminders_sent (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reminder_date DATE NOT NULL,
+      reminder_time TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY(user_id, reminder_date, reminder_time)
+    );
   `);
 }
