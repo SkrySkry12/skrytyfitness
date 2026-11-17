@@ -1,6 +1,7 @@
 name: Build and validate
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, feature/sleeper-build-2.0]
   pull_request:
