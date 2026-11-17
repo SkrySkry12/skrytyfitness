@@ -553,3 +553,83 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
   .food-calorie-head strong{font-size:24px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* Sleeper Build Edition — iPhone polish meets calm RPG progression */
+:root{--rpg-mint:#8ce8ad;--rpg-blue:#75aaff;--rpg-glass:rgba(18,31,51,.82)}
+.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.section-heading h3{margin:3px 0 0}
+.section-heading .secondary{display:flex;align-items:center;gap:7px}
+.achievement-preview{background:linear-gradient(135deg,rgba(25,49,79,.96),rgba(15,28,47,.98) 60%,rgba(17,39,34,.92));border-color:rgba(117,170,255,.2)}
+.xp-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:17px 0}
+.xp-summary>div{display:grid;gap:5px;padding:14px;border-radius:14px;background:rgba(5,13,25,.42);border:1px solid rgba(151,181,229,.12)}
+.xp-summary span,.journey-level span{font-size:9px;letter-spacing:1.3px;color:#9fb4d4;font-weight:800}
+.xp-summary b{font-size:21px;color:#eaf3ff}
+.achievement-mini-list{display:grid;gap:8px}
+.achievement-mini{display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:13px;background:rgba(7,15,27,.4);border:1px solid rgba(151,181,229,.1);color:#91a4c2}
+.achievement-mini span{flex:1;font-size:12px;font-weight:700}
+.achievement-mini b{font-size:11px}
+.achievement-mini.unlocked{color:#a9d6ff;border-color:rgba(117,170,255,.24);background:rgba(55,100,160,.14)}
+.journey-hero{background:linear-gradient(135deg,rgba(38,72,119,.56),rgba(17,32,54,.98) 62%,rgba(18,46,37,.8));border-color:rgba(117,170,255,.24)}
+.journey-level{display:flex;align-items:center;gap:15px}
+.journey-emblem{display:grid;place-items:center;width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,rgba(117,170,255,.25),rgba(140,232,173,.12));border:1px solid rgba(151,190,255,.3);color:#b8d5ff}
+.journey-level h2{font-size:19px;margin:4px 0;color:#f0f6ff}
+.journey-level small{color:#9fb4d4}
+.xp-track,.meal-timeline-track{height:9px;background:rgba(4,12,23,.62);border-radius:99px;overflow:hidden;margin:19px 0 8px}
+.xp-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#75aaff,#8ce8ad);box-shadow:0 0 16px rgba(117,170,255,.32);transition:width .3s}
+.achievement-tree{padding:8px 0 18px}
+.tree-node{display:flex;align-items:center;gap:14px;padding:17px;border:1px solid rgba(151,181,229,.13);border-radius:18px;background:linear-gradient(145deg,rgba(19,33,54,.95),rgba(12,23,39,.95));box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.tree-node.unlocked{border-color:rgba(117,170,255,.32);background:linear-gradient(120deg,rgba(39,70,112,.46),rgba(17,38,38,.75))}
+.tree-node.locked{opacity:.68}
+.tree-icon{width:47px;height:47px;flex:0 0 47px;display:grid;place-items:center;border-radius:15px;background:rgba(117,170,255,.13);color:#a8cbff}
+.tree-node.unlocked .tree-icon{background:rgba(140,232,173,.13);color:#9be8b4}
+.tree-copy{flex:1;min-width:0}
+.tree-status{font-size:8px;font-weight:900;letter-spacing:1.2px;color:#8da5c9}
+.tree-node.unlocked .tree-status{color:#9be8b4}
+.tree-copy h3{font-size:14px;margin:5px 0}
+.tree-copy p{font-size:11px;color:#9eafc9;margin:0;line-height:1.5}
+.tree-check{color:#8fa4c4}
+.tree-node.unlocked .tree-check{color:#8ce8ad}
+.tree-connector{height:20px;width:2px;margin-left:39px;background:linear-gradient(#75aaff,#8ce8ad);opacity:.55}
+.meal-schedule-panel{border-color:rgba(117,170,255,.2);background:linear-gradient(145deg,rgba(19,34,55,.98),rgba(12,24,41,.98))}
+.meal-reminder-pill{display:flex;align-items:center;gap:6px;border-radius:30px;padding:7px 10px;background:rgba(117,170,255,.12);color:#b6d3ff;border:1px solid rgba(117,170,255,.2);font-size:9px;font-weight:800;white-space:nowrap}
+.next-meal-card{display:flex;align-items:center;gap:13px;padding:15px;border-radius:16px;background:linear-gradient(110deg,rgba(55,95,151,.25),rgba(10,21,36,.65));border:1px solid rgba(117,170,255,.18)}
+.next-meal-icon{width:43px;height:43px;display:grid;place-items:center;border-radius:14px;background:rgba(117,170,255,.15);color:#a9ceff}
+.next-meal-copy{flex:1;display:grid;gap:3px}
+.next-meal-copy span{font-size:8px;letter-spacing:1.3px;color:#94acd0;font-weight:900}
+.next-meal-copy b{font-size:15px;color:#f0f6ff}
+.next-meal-copy small{font-size:11px;color:#a9c6ee}
+.meal-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:14px}
+.meal-time-item{position:relative;display:grid;justify-items:center;gap:5px;text-align:center;padding:10px 3px;border-radius:12px;background:rgba(5,14,26,.36);border:1px solid rgba(151,181,229,.09)}
+.meal-time-dot{width:7px;height:7px;border-radius:50%;background:#647b9b;box-shadow:0 0 0 4px rgba(100,123,155,.12)}
+.meal-time-item.logged .meal-time-dot{background:#8ce8ad;box-shadow:0 0 0 4px rgba(140,232,173,.13)}
+.meal-time-item>div{display:grid;gap:3px}
+.meal-time-item b{font-size:9px;color:#cbd8eb}
+.meal-time-item small{font-size:10px;color:#91a8c9}
+.meal-time-status{display:flex;align-items:center;gap:3px;font-size:8px;color:#8196b4}
+.meal-time-item.logged .meal-time-status{color:#8ce8ad}
+.reminder-settings,.push-settings{background:linear-gradient(145deg,rgba(19,34,55,.98),rgba(13,25,41,.98));border-color:rgba(117,170,255,.16)}
+.reminder-toggle,.meal-setting-row>label{display:flex;align-items:center;gap:10px;color:#d4e2f7;font-size:12px;font-weight:700}
+.reminder-toggle{padding:13px;border-radius:13px;background:rgba(117,170,255,.08);margin:15px 0}
+.reminder-toggle input,.meal-setting-row input[type=checkbox]{accent-color:#78aaff;width:17px;height:17px}
+.meal-settings-list{display:grid;gap:8px;margin:12px 0 17px}
+.meal-setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid rgba(151,181,229,.11);border-radius:12px;background:rgba(4,13,25,.36)}
+.meal-setting-row>label span{font-size:12px}
+.meal-setting-row input[type=time]{background:#091426;border:1px solid rgba(151,181,229,.2);color:#edf4ff;border-radius:9px;padding:8px 10px;font:inherit;color-scheme:dark}
+.push-status{display:flex;align-items:center;gap:9px;margin:15px 0;color:#c5d7ee;font-size:12px;font-weight:700}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#8290a5}
+.status-dot.active{background:#8ce8ad;box-shadow:0 0 0 4px rgba(140,232,173,.12)}
+.push-hint{display:block;margin-top:13px;line-height:1.6}
+.settings-message{font-size:12px;color:#a9d6ff;margin:12px 0 0}
+.journey-stats{margin-top:14px}
+@media(max-width:700px){
+ .meal-timeline{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .next-meal-card{gap:10px;padding:12px}
+ .next-meal-copy b{font-size:13px}
+ .tree-node{padding:13px;gap:11px}
+ .tree-icon{width:42px;height:42px;flex-basis:42px}
+ .journey-level h2{font-size:16px}
+ .mobile-nav{grid-template-columns:repeat(7,minmax(0,1fr));left:6px;right:6px;padding:6px 3px}
+ .mobile-nav button{font-size:7px}
+ .mobile-nav button svg{width:16px;height:16px}
+}
