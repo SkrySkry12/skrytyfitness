@@ -707,3 +707,25 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
  .custom-exercise-fields{grid-template-columns:1fr}
  .custom-exercise-fields button{grid-column:auto;width:100%}
 }
+
+/* Keep workout controls inside their cards on narrow phone screens */
+.main,.panel,.exercise-log-card,.set-log-grid,.set-log-row,.custom-exercise-form{min-width:0;max-width:100%}
+.exercise-log-card,.custom-exercise-form,.workout-history-item{overflow:hidden}
+.exercise-log-card>div:first-child,.history-exercise,.history-exercise span{min-width:0;overflow-wrap:anywhere}
+.workout-autosave-note{margin:7px 0 12px;padding:9px 11px;border:1px solid rgba(140,232,173,.22);border-radius:10px;background:rgba(140,232,173,.07);color:#9be8b4;font-size:10px;line-height:1.45}
+.set-log-label,.set-log-row{min-width:0}
+.set-log-label span{min-width:0;text-align:center;overflow-wrap:anywhere}
+.set-log-row input{min-width:0;max-width:100%}
+@media(max-width:420px){
+ .panel{padding:12px}
+ .exercise-log-card{padding:11px}
+ .set-log-label,.set-log-row{grid-template-columns:25px minmax(0,.85fr) minmax(0,1.15fr) 30px;gap:4px}
+ .set-log-label{font-size:7px;letter-spacing:0}
+ .set-log-row input{padding:8px 2px;font-size:12px}
+ .reps-stepper{grid-template-columns:23px minmax(0,1fr) 23px;gap:2px}
+ .reps-stepper button{font-size:16px}
+ .set-done-toggle{width:28px;height:32px}
+ .custom-exercise-fields{grid-template-columns:minmax(0,1fr)}
+ .calendar-history-link{min-width:0}
+}
+html,body,#root{max-width:100%;overflow-x:hidden}
