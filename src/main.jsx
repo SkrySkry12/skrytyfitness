@@ -113,7 +113,7 @@ function App() {
     const key=selected+"-"+exerciseIndex,item=activeWorkoutItems()[exerciseIndex],count=Math.max(1,Number(String(item[1]).match(/^(\d+)/)?.[1]||3));
     setWorkoutSets(current=>{const existing=current[key]||Array.from({length:count},()=>({kg:"",reps:String(item[1]).match(/×\s*(\d+)/)?.[1]||"10",done:false}));return {...current,[key]:existing.map((set,i)=>i===setIndex?{...set,[field]:value}:set)};});
   }
-  function addCustomExercise(){const name=newExerciseName.trim();if(!name)return;setCustomExercises(current=>({...current,[selected]:[...(current[selected]||[]),[name,Math.max(1,Math.min(10,Number(newExerciseSets)||3))+" × "+Math.max(1,Math.min(100,Number(newExerciseReps)||10)),newExerciseMuscle||"Inne"]]}));setNewExerciseName("");setWorkoutSets({});}
+  function addCustomExercise(){const name=newExerciseName.trim();if(!name)return;setCustomExercises(current=>({...current,[selected]:[...(current[selected]||[]),[name,Math.max(1,Math.min(10,Number(newExerciseSets)||3))+" × "+Math.max(1,Math.min(100,Number(newExerciseReps)||10)),newExerciseMuscle||"Inne"]]}));setNewExerciseName("");}
   function changeWorkoutDate(day){
     setWorkoutDate(day);const existing=byKind("workout").find(e=>e.entry_date?.slice(0,10)===day);
     if(existing?.data?.plan&&plans[existing.data.plan])setSelected(existing.data.plan);
