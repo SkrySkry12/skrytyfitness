@@ -46,6 +46,7 @@ function App() {
   try{
     if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))throw new Error("Ta przeglądarka nie obsługuje powiadomień web push.");
     await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});
+    await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});
     const config=await api("/api/push/public-key");
     if(!config.publicKey)throw new Error("Powiadomienia wymagają jeszcze konfiguracji VAPID w Coolify. Instrukcja znajduje się w README projektu.");
     const permission=await Notification.requestPermission();
