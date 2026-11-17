@@ -9,3 +9,16 @@ Przy każdym ćwiczeniu w planie FBW A/B/C znajduje się pole **Twoja maszyna / 
 Pakiet projektu: `SkrySkry-Fitness-PWA-2.0.zip` (dołączony w rozmowie). W Coolify wybierz Docker Compose (`docker-compose.yml`), ustaw `ADMIN_USERNAME=skryskry`, własne `ADMIN_PASSWORD` (minimum 12 znaków), `SESSION_SECRET`, `DB_PASSWORD` oraz zgodny `DATABASE_URL`. Wystaw port 3000 i włącz HTTPS.
 
 Uwaga: ustaw hasło wyłącznie w zmiennych środowiskowych Coolify. Nie commituj `.env`.
+
+## Sleeper Build Edition — konfiguracja powiadomień
+
+Aplikacja obsługuje przypomnienia o posiłkach przez Web Push. Aby wysyłać je również po zamknięciu PWA, ustaw w zmiennych środowiskowych Coolify:
+
+- `VAPID_PUBLIC_KEY` — publiczny klucz VAPID
+- `VAPID_PRIVATE_KEY` — prywatny klucz VAPID (sekret; nie dodawaj go do repozytorium)
+- `VAPID_SUBJECT` — np. `mailto:admin@skryskry.pl`
+- `APP_TIMEZONE` — `Europe/Warsaw`
+
+Wygeneruj własną parę kluczy poleceniem `npx web-push generate-vapid-keys`. Po zapisaniu zmiennych wykonaj redeploy. Nie używaj kluczy prywatnych w kodzie ani w repozytorium.
+
+Na iPhonie wymagane jest iOS 16.4 lub nowszy: otwórz aplikację w Safari, wybierz Udostępnij → Dodaj do ekranu początkowego, uruchom ją z nowej ikony i zaakceptuj prośbę o powiadomienia. Godziny posiłków są konfigurowalne w Ustawieniach. Powiadomienia można w dowolnym momencie wyłączyć.
