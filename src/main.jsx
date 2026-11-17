@@ -85,7 +85,7 @@ function App() {
     const key=selected+"-"+exerciseIndex,item=activeWorkoutItems()[exerciseIndex],count=getWorkoutSetCount(exerciseIndex);
     setWorkoutSets(current=>{const existing=current[key]||Array.from({length:count},()=>({kg:"",reps:String(item[1]).match(/×\s*(\d+)/)?.[1]||"10",done:false}));return {...current,[key]:existing.map((set,i)=>i===setIndex?{...set,[field]:value}:set)};});
   }
-  function addCustomExercise(){const name=newExerciseName.trim();if(!name)return;setCustomExercises(current=>({...current,[selected]:[...(current[selected]||[]),[name,Math.max(1,Math.min(10,Number(newExerciseSets)||3))+" × "+Math.max(1,Math.min(100,Number(newExerciseReps)||10)),newExerciseMuscle||"Inne"]]}));setNewExerciseName("");setWorkoutSets({});}
+  function addCustomExercise(){const name=newExerciseName.trim();if(!name)return;setCustomExercises(current=>({...current,[selected]:[...(current[selected]||[]),[name,Math.max(1,Math.min(10,Number(newExerciseSets)||3))+" × "+Math.max(1,Math.min(100,Number(newExerciseReps)||10)),newExerciseMuscle||"Inne"]]}));setNewExerciseName("");}
   function changeWorkoutDate(day){
     setWorkoutDate(day);const existing=byKind("workout").find(e=>e.entry_date?.slice(0,10)===day);
     if(existing?.data?.plan&&plans[existing.data.plan])setSelected(existing.data.plan);
@@ -153,7 +153,7 @@ function App() {
  <p className="muted">Jaki trening wykonujesz?</p><div className="tabs">{Object.keys(plans).map(k=><button key={k} className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k==="HOME"?"DOM":k}</button>)}</div>
  <h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p>
   {activeWorkoutItems().map((x, i) => {
-    const count = Math.max(1, Number.parseInt(String(x[1]), 10) || 3);
+    const count = getWorkoutSetCount(i);
     return (
       <article className="exercise-log-card" key={selected + "-" + i}>
         <div>
