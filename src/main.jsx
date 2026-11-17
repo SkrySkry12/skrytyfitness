@@ -165,6 +165,9 @@ function App() {
           </div>
           {Array.from({ length: count }, (_, setIndex) => {
             const set = getWorkoutSet(i, setIndex);
+            const repTargets = String(x[1]).match(/[0-9]+/g);
+            const targetReps = repTargets ? Number(repTargets[repTargets.length - 1]) : null;
+            const extraReps = targetReps !== null && Number(set.reps) > targetReps ? Number(set.reps) - targetReps : 0;
             return (
               <div className="set-log-row" key={setIndex}>
                 <b>{setIndex + 1}</b>
@@ -173,6 +176,7 @@ function App() {
                   <button type="button" aria-label="Odejmij powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String(Math.max(0, (Number(set.reps) || 0) - 1)))}>−</button>
                   <input aria-label={"Powtórzenia seria " + (setIndex + 1)} type="number" min="0" step="1" value={set.reps} onChange={e => updateWorkoutSet(i, setIndex, "reps", e.target.value)} />
                   <button type="button" aria-label="Dodaj powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String((Number(set.reps) || 0) + 1))}>+</button>
+                  {extraReps > 0 && <small className="extra-reps-indicator">+{extraReps} ponad plan</small>}
                 </div>
                 <button type="button" className={"set-done-toggle" + (set.done ? " done" : "")} aria-label={set.done ? "Oznacz serię jako niewykonaną" : "Oznacz serię jako wykonaną"} onClick={() => updateWorkoutSet(i, setIndex, "done", !set.done)}>{set.done ? "✓" : "○"}</button>
               </div>
