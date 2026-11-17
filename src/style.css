@@ -675,6 +675,7 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
 .reps-stepper{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;gap:4px;min-width:0}
 .reps-stepper button{border:1px solid rgba(117,170,255,.24);border-radius:9px;background:rgba(117,170,255,.13);color:#c5dcff;font-size:19px;line-height:1;min-width:0;cursor:pointer}
 .reps-stepper input{width:100%;min-width:0;text-align:center;box-sizing:border-box;background:#091426;border:1px solid rgba(151,181,229,.2);border-radius:9px;padding:9px 3px;color:#f0f6ff;font:inherit;font-size:13px;color-scheme:dark}
+.extra-reps-indicator{grid-column:1/-1;color:#8ce8ad;font-size:10px;font-weight:800;text-align:center;white-space:nowrap}
 .calendar-history-link{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;padding:13px 0;border:0;border-bottom:1px solid rgba(151,181,229,.12);background:transparent;color:#c9dcf8;cursor:pointer}
 .calendar-history-link>span:first-child{display:grid;gap:4px}
 .calendar-history-link small{font-size:10px;color:#91a8c9}
