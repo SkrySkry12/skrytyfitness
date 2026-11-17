@@ -706,3 +706,71 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
  .custom-exercise-fields{grid-template-columns:1fr}
  .custom-exercise-fields button{grid-column:auto;width:100%}
 }
+
+
+/* Revolut-inspired dark navy + electric blue visual system */
+:root{
+  --green:#8bb8ff;--green-strong:#4d8dff;--muted:#9aa9c4;
+  --line:rgba(143,169,220,.17);--surface:#111a2b;--surface-2:#182642;
+  --shadow:0 20px 60px rgba(0,0,0,.34);
+  --rev-blue:#6ea8ff;--rev-cyan:#55d6ff;--rev-violet:#9a83ff;
+}
+html{background:#080d18}
+body,.login-shell{
+  color:#f2f5ff;
+  background:radial-gradient(ellipse at 82% -8%,rgba(74,117,255,.22),transparent 34rem),
+    radial-gradient(ellipse at 0% 55%,rgba(91,76,210,.12),transparent 31rem),#080d18;
+}
+.sidebar{background:rgba(12,20,36,.96);border-color:var(--line)}
+.brand-mark,.brand svg,.green,.eyebrow.green,.exercise-link,.logout:hover{color:var(--rev-blue)}
+.sidebar nav button.active,.sidebar nav button:hover{background:linear-gradient(110deg,rgba(75,130,255,.2),rgba(130,103,255,.13));color:#d9e7ff}
+.pill,.tabs button,.secondary{background:rgba(77,126,224,.13);color:#c8dcff;border-color:rgba(117,164,255,.22)}
+.tabs button.selected{background:linear-gradient(110deg,#2869d9,#5b57d6);border-color:transparent;color:#fff;box-shadow:0 8px 24px rgba(48,105,220,.24)}
+.primary{background:linear-gradient(110deg,#367df2,#665ce6);color:white;box-shadow:0 8px 24px rgba(56,112,232,.24)}
+.primary:hover{background:linear-gradient(110deg,#5593ff,#8175ff)}
+.done,.set-done-toggle.done{background:rgba(73,146,255,.2);border:1px solid rgba(110,168,255,.4);color:#b9d6ff}
+.hero-stat,.stat-card,.panel,.login-card,.exercise-log-card,.workout-calendar-panel,.meal-schedule-panel,.reminder-settings,.push-settings{
+  background:linear-gradient(145deg,rgba(22,34,57,.96),rgba(13,22,39,.98));
+  border-color:var(--line);box-shadow:var(--shadow)
+}
+.hero-stat{color:#8bb8ff}
+.hero-stat b,.welcome h1 span,.login-card h1 span{color:#dce8ff}
+.welcome h1 span{background:linear-gradient(90deg,#74aaff,#a18cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.form-grid input,.form-grid select,.login-card input,.food-field input,.set-log-row input,.reps-stepper input,.custom-exercise-fields input,.custom-exercise-fields select,.calendar-date-input{
+  background:#0a1324;border-color:rgba(143,169,220,.2);color:#f2f5ff
+}
+.form-grid input:focus,.login-card input:focus,.food-field input:focus,.set-log-row input:focus,.reps-stepper input:focus{border-color:#6ea8ff;box-shadow:0 0 0 3px rgba(82,139,255,.12)}
+.mobile-nav{background:rgba(12,20,37,.9);border-color:rgba(143,169,220,.2)}
+.mobile-nav button.active{background:linear-gradient(110deg,rgba(61,125,238,.28),rgba(117,91,224,.2));color:#c7dcff}
+.food-summary{background:linear-gradient(125deg,#203f78,#172744 65%,#171f3c);border-color:rgba(117,164,255,.28)}
+.food-kicker,.food-remaining,.food-meal-title b{color:#a9ccff}
+.food-calorie-track span,.food-macro-track span{background:linear-gradient(90deg,#438cff,#9c8cff)}
+.food-search-box{background:linear-gradient(145deg,rgba(29,51,87,.6),rgba(9,19,36,.8));border-color:rgba(113,168,255,.2)}
+.food-search-result:hover{border-color:#6da6ff;background:rgba(35,66,111,.45)}
+.food-result-placeholder,.food-log-icon,.next-meal-icon,.tree-icon{background:rgba(75,130,230,.17);color:#a9ccff}
+.journey-hero,.achievement-preview{background:linear-gradient(120deg,rgba(38,69,126,.72),rgba(20,30,57,.98) 62%,rgba(47,39,100,.58));border-color:rgba(117,164,255,.24)}
+.journey-emblem{background:linear-gradient(145deg,rgba(117,170,255,.28),rgba(154,131,255,.18));color:#c6d8ff}
+.xp-track span{background:linear-gradient(90deg,#438cff,#9a83ff)}
+.tree-node,.next-meal-card,.meal-schedule-panel{background:linear-gradient(145deg,rgba(20,34,58,.96),rgba(12,22,40,.96))}
+.tree-node.unlocked{border-color:rgba(117,170,255,.34);background:linear-gradient(120deg,rgba(39,78,139,.4),rgba(34,37,79,.65))}
+.tree-node.unlocked .tree-icon,.tree-node.unlocked .tree-status,.tree-node.unlocked .tree-check,.status-dot.active{color:#9fc5ff}
+.meal-reminder-pill{background:rgba(117,170,255,.12);color:#b6d3ff;border-color:rgba(117,170,255,.2)}
+.meal-time-item.logged .meal-time-dot{background:#79aaff;box-shadow:0 0 0 4px rgba(121,170,255,.13)}
+.meal-time-item.logged .meal-time-status{color:#9fc5ff}
+.reminder-toggle input,.meal-setting-row input[type=checkbox]{accent-color:#78aaff}
+.settings-message{color:#a9ccff}
+.calendar-day.has-workout{border-color:rgba(117,170,255,.38);background:rgba(45,86,150,.2)}
+.calendar-day small,.calendar-day.today b{color:#9fc5ff}
+.calendar-day.selected{outline-color:#75aaff;background:rgba(57,103,169,.32)}
+.legend-dot{background:#8bb8ff}
+.selected-dot{background:#9a83ff}
+.calendar-arrow,.reps-stepper button,.set-done-toggle{background:rgba(90,139,235,.14);border-color:rgba(117,164,255,.25);color:#c5dcff}
+.custom-exercise-form{border-color:rgba(117,164,255,.32);background:rgba(75,126,224,.07)}
+.exercise-set-controls{display:flex;align-items:center;gap:9px;margin-top:10px}
+.exercise-set-controls span{font-size:10px;color:#9eafd0;font-weight:700;margin-right:3px}
+.exercise-set-controls button{width:30px;height:30px;border-radius:9px;border:1px solid rgba(117,164,255,.3);background:rgba(77,126,224,.16);color:#c9ddff;font-size:19px;line-height:1}
+.exercise-set-controls button:disabled{opacity:.35;cursor:not-allowed}
+.exercise-set-controls b{min-width:18px;text-align:center;color:#f2f5ff;font-size:14px}
+.exercise-log-card>div:first-child b{color:#f2f5ff}
+.exercise-log-card>div:first-child p{color:#9eafd0}
+@media(max-width:700px){.exercise-set-controls{margin-top:9px}.exercise-set-controls button{width:34px;height:34px}}
