@@ -68,7 +68,12 @@ function App() {
  async function signIn(e){e.preventDefault();setError("");try{await api("/api/login",{method:"POST",body:JSON.stringify({username:login,password})});setPassword("");await refresh()}catch(e){setError(e.message)}}
  async function logout(){await api("/api/logout",{method:"POST"});setUser(null);setEntries([])}
  async function add(kind,data,date=today()){try{await api("/api/entries",{method:"POST",body:JSON.stringify({date,kind,data})});setEntries(await api("/api/entries"));setError("")}catch(e){setError(e.message)}}
-  function activeWorkoutItems(){return [...plans[selected].items,...(customExercises[selected]||[])];}
+  function activeWorkoutItems(){
+    const saved=(workoutsByDate?.[workoutDate]||[]).filter(entry=>entry.data?.plan===selected).flatMap(entry=>(entry.data?.exercises||[]).filter(ex=>ex.custom).map(ex=>[ex.name,"3 × 10",ex.muscle||"Inne"]));
+    const extras=[...(customExercises[selected]||[]),...saved];
+    const unique=extras.filter((item,index)=>extras.findIndex(other=>other[0]===item[0])===index);
+    return [...plans[selected].items,...unique];
+  }
   function getWorkoutSet(exerciseIndex,setIndex){
     const item=activeWorkoutItems()[exerciseIndex],count=Math.max(1,Number(String(item[1]).match(/^(\d+)/)?.[1]||3));
     const reps=String(item[1]).match(/×\s*(\d+)/)?.[1]||"10";
