@@ -29,7 +29,7 @@ const plans = {
 };
 const nav = [["dashboard","Przegląd",Home],["training","Trening",Dumbbell],["food","Dieta",Utensils],["journey","Drzewko",Trophy],["progress","Postępy",TrendingDown],["reports","Raporty",Activity],["settings","Ustawienia",Settings]];
 function App() {
- const [user,setUser]=useState(null),[page,setPage]=useState("dashboard"),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const [user,setUser]=useState(null),[page,setPage]=useState(["dashboard","training","food","journey","progress","reports","settings"].includes(new URLSearchParams(window.location.search).get("page"))?new URLSearchParams(window.location.search).get("page"):"dashboard"),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const [login,setLogin]=useState("skryskry"),[password,setPassword]=useState(""),[weight,setWeight]=useState("104"),[waist,setWaist]=useState("");
  const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[foodSearch,setFoodSearch]=useState(""),[foodResults,setFoodResults]=useState([]),[foodSearching,setFoodSearching]=useState(false),[foodSearchMessage,setFoodSearchMessage]=useState(""),[selectedFoodProduct,setSelectedFoodProduct]=useState(null),[aiFoodLoading,setAiFoodLoading]=useState(false),[aiFoodMessage,setAiFoodMessage]=useState(""),[barcode,setBarcode]=useState(""),[barcodeSearching,setBarcodeSearching]=useState(false),[scannerOpen,setScannerOpen]=useState(false),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({}),[currentPassword,setCurrentPassword]=useState(""),[newPassword,setNewPassword]=useState(""),[passwordMessage,setPasswordMessage]=useState(""),[aiAnalysis,setAiAnalysis]=useState(""),[aiLoading,setAiLoading]=useState(false),[workoutDate,setWorkoutDate]=useState(today()),[settings,setSettings]=useState(defaultSettings),[settingsMessage,setSettingsMessage]=useState(""),[pushEnabled,setPushEnabled]=useState(false),[clock,setClock]=useState(Date.now());
  async function searchFood(e){e?.preventDefault();if(foodSearch.trim().length<2){setFoodSearchMessage("Wpisz przynajmniej 2 znaki.");return;}setFoodSearching(true);setFoodSearchMessage("");setFoodResults([]);try{const result=await api("/api/food/search?q="+encodeURIComponent(foodSearch.trim()));setFoodResults(result.products||[]);if(!result.products?.length)setFoodSearchMessage("Nie znaleziono produktu z kompletnymi wartościami odżywczymi. Spróbuj innej nazwy.");}catch(err){setFoodSearchMessage(err.message);}finally{setFoodSearching(false);}}
@@ -45,6 +45,7 @@ function App() {
   setSettingsMessage("");
   try{
     if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))throw new Error("Ta przeglądarka nie obsługuje powiadomień web push.");
+    await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});
     const config=await api("/api/push/public-key");
     if(!config.publicKey)throw new Error("Powiadomienia wymagają jeszcze konfiguracji VAPID w Coolify. Instrukcja znajduje się w README projektu.");
     const permission=await Notification.requestPermission();
