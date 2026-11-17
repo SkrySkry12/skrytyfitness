@@ -150,7 +150,38 @@ function App() {
  <section className="panel"><div className="section-heading"><div><p className="eyebrow green">WYBRANY DZIEŃ</p><h3>{new Date(workoutDate+"T12:00:00").toLocaleDateString("pl-PL",{weekday:"long",day:"numeric",month:"long"})}</h3></div><input className="calendar-date-input" type="date" value={workoutDate} onChange={e=>{setWorkoutDate(e.target.value);setWorkoutMonth(e.target.value.slice(0,7));}}/></div>
  <p className="muted">Jaki trening wykonujesz?</p><div className="tabs">{Object.keys(plans).map(k=><button key={k} className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k==="HOME"?"DOM":k}</button>)}</div>
  <h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p>
- {activeWorkoutItems().map((x,i)=>{const count=Math.max(1,Number.parseInt(String(x[1]),10)||3);return <article className="exercise-log-card" key={selected+"-"+i}><div><b>{x[0]}</b><p>{x[2]} · Plan: {x[1]}</p><a className="exercise-link" href={"https://www.youtube.com/results?search_query="+encodeURIComponent(x[0]+" exercise tutorial proper form")} target="_blank" rel="noreferrer">Instruktaż</a></div><div className="set-log-grid"><div className="set-log-label"><span>SERIA</span><span>CIĘŻAR (KG)</span><span>POWTÓRZENIA</span><span>WYKONANO</span></div>{Array.from({length:count},(_,setIndex)=>{const set=getWorkoutSet(i,setIndex);return <div className="set-log-row" key={setIndex}><b>{setIndex+1}</b><input aria-label={"Ciężar seria "+(setIndex+1)} type="number" min="0" step="0.5" placeholder="0" value={set.kg} onChange={e=>updateWorkoutSet(i,setIndex,"kg",e.target.value)}/><div className="reps-stepper"><button type="button" aria-label="Odejmij powtórzenie" onClick={()=>updateWorkoutSet(i,setIndex,"reps",String(Math.max(0,(Number(set.reps)||0)-1)))}>−</button><input aria-label={"Powtórzenia seria "+(setIndex+1)} type="number" min="0" step="1" value={set.reps} onChange={e=>updateWorkoutSet(i,setIndex,"reps",e.target.value)}/><button type="button" aria-label="Dodaj powtórzenie" onClick={()=>updateWorkoutSet(i,setIndex,"reps",String((Number(set.reps)||0)+1))}>+</button></div><button type="button" className={"set-done-toggle"+(set.done?" done":"")} aria-label={set.done?"Oznacz serię jako niewykonaną":"Oznacz serię jako wykonaną"} onClick={()=>updateWorkoutSet(i,setIndex,"done",!set.done)}>{set.done?"✓":"○"}</button></div></div>})}</div></article>})}
+  {activeWorkoutItems().map((x, i) => {
+    const count = Math.max(1, Number.parseInt(String(x[1]), 10) || 3);
+    return (
+      <article className="exercise-log-card" key={selected + "-" + i}>
+        <div>
+          <b>{x[0]}</b>
+          <p>{x[2]} · Plan: {x[1]}</p>
+          <a className="exercise-link" href={"https://www.youtube.com/results?search_query=" + encodeURIComponent(x[0] + " exercise tutorial proper form")} target="_blank" rel="noreferrer">Instruktaż</a>
+        </div>
+        <div className="set-log-grid">
+          <div className="set-log-label">
+            <span>SERIA</span><span>CIĘŻAR (KG)</span><span>POWTÓRZENIA</span><span>WYKONANO</span>
+          </div>
+          {Array.from({ length: count }, (_, setIndex) => {
+            const set = getWorkoutSet(i, setIndex);
+            return (
+              <div className="set-log-row" key={setIndex}>
+                <b>{setIndex + 1}</b>
+                <input aria-label={"Ciężar seria " + (setIndex + 1)} type="number" min="0" step="0.5" placeholder="0" value={set.kg} onChange={e => updateWorkoutSet(i, setIndex, "kg", e.target.value)} />
+                <div className="reps-stepper">
+                  <button type="button" aria-label="Odejmij powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String(Math.max(0, (Number(set.reps) || 0) - 1)))}>−</button>
+                  <input aria-label={"Powtórzenia seria " + (setIndex + 1)} type="number" min="0" step="1" value={set.reps} onChange={e => updateWorkoutSet(i, setIndex, "reps", e.target.value)} />
+                  <button type="button" aria-label="Dodaj powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String((Number(set.reps) || 0) + 1))}>+</button>
+                </div>
+                <button type="button" className={"set-done-toggle" + (set.done ? " done" : "")} aria-label={set.done ? "Oznacz serię jako niewykonaną" : "Oznacz serię jako wykonaną"} onClick={() => updateWorkoutSet(i, setIndex, "done", !set.done)}>{set.done ? "✓" : "○"}</button>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+    );
+  })}
  <div className="custom-exercise-form"><h3>Dodaj własne ćwiczenie</h3><div className="custom-exercise-fields"><input aria-label="Nazwa ćwiczenia" placeholder="Np. Wyciskanie hantli skos" value={newExerciseName} onChange={e=>setNewExerciseName(e.target.value)}/><input aria-label="Liczba serii" type="number" min="1" max="10" value={newExerciseSets} onChange={e=>setNewExerciseSets(e.target.value)} placeholder="Serie"/><input aria-label="Powtórzenia w serii" type="number" min="1" max="100" value={newExerciseReps} onChange={e=>setNewExerciseReps(e.target.value)} placeholder="Powtórzenia"/><select aria-label="Partia mięśniowa" value={newExerciseMuscle} onChange={e=>setNewExerciseMuscle(e.target.value)}>{["Klatka piersiowa","Plecy","Nogi","Barki","Biceps","Triceps","Brzuch","Pośladki","Inne"].map(m=><option key={m}>{m}</option>)}</select><button type="button" className="secondary" onClick={addCustomExercise} disabled={!newExerciseName.trim()}>+ Dodaj ćwiczenie</button></div></div><button className="primary" onClick={saveWorkout}>Zapisz trening na ten dzień</button></section>
  <section className="panel"><div className="section-heading"><h3>Treningi w wybranym dniu</h3><span className="muted">{(workoutsByDate[workoutDate]||[]).length} zapisane</span></div>{(workoutsByDate[workoutDate]||[]).map(entry=><article className="workout-history-item" key={entry.id}><div className="section-heading"><b>{entry.data?.name||"Trening"}</b><small>{entry.entry_date?.slice(0,10)}</small></div>{(entry.data?.exercises||[]).map(ex=><div className="history-exercise" key={ex.name}><b>{ex.name}</b><span>{(ex.sets||[]).map((set,i)=>"S"+(i+1)+": "+(set.kg||0)+" kg × "+(set.reps||0)+" powt.").join(" · ")}</span></div>)}{!entry.data?.exercises?.length&&<p className="muted">Zapisano trening bez szczegółowych wyników.</p>}</article>)}{!(workoutsByDate[workoutDate]||[]).length&&<p className="muted">Brak zapisanego treningu. Wybierz plan powyżej i zapisz wyniki.</p>}</section>
  <section className="panel"><h3>Ostatnie treningi</h3>{workoutEntries.slice(0,10).map(entry=><button className="calendar-history-link" key={entry.id} onClick={()=>{const day=entry.entry_date?.slice(0,10);if(day){setWorkoutMonth(day.slice(0,7));changeWorkoutDate(day);}}}><span><b>{entry.data?.name||"Trening"}</b><small>{entry.entry_date?.slice(0,10)}</small></span><span>Otwórz dzień →</span></button>)}</section></>}
