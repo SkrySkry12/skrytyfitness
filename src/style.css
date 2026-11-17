@@ -633,3 +633,20 @@ footer{padding:30px 0 15px;letter-spacing:1.8px;color:#607696}
  .mobile-nav button{font-size:7px}
  .mobile-nav button svg{width:16px;height:16px}
 }
+
+
+.exercise-log-card{display:grid;gap:13px;padding:15px;margin:13px 0;border:1px solid rgba(151,181,229,.14);border-radius:16px;background:linear-gradient(145deg,rgba(20,35,57,.9),rgba(10,21,36,.88))}
+.exercise-log-card>div:first-child b{font-size:14px;color:#edf4ff}
+.exercise-log-card>div:first-child p{margin:5px 0;color:#91a8c9;font-size:11px}
+.set-log-grid{display:grid;gap:7px}
+.set-log-label,.set-log-row{display:grid;grid-template-columns:42px 1fr 1fr;gap:8px;align-items:center}
+.set-log-label{padding:0 5px;color:#8fa7ca;font-size:8px;font-weight:900;letter-spacing:.7px}
+.set-log-row b{display:grid;place-items:center;width:30px;height:32px;border-radius:9px;background:rgba(117,170,255,.12);color:#b8d5ff;font-size:11px}
+.set-log-row input{width:100%;min-width:0;box-sizing:border-box;background:#091426;border:1px solid rgba(151,181,229,.2);border-radius:9px;padding:10px;color:#f0f6ff;font:inherit;font-size:13px;color-scheme:dark}
+.workout-history-item{padding:13px 0;border-bottom:1px solid rgba(151,181,229,.12)}
+.workout-history-item:last-child{border-bottom:0}
+.workout-history-item .section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.workout-history-item .section-heading small{color:#91a8c9}
+.history-exercise{display:grid;gap:3px;padding:8px 0}
+.history-exercise b{font-size:12px;color:#dce9fb}
+.history-exercise span{font-size:10px;color:#9db2d1;line-height:1.5}
