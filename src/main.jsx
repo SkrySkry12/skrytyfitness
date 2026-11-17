@@ -31,7 +31,7 @@ const nav = [["dashboard","Przegląd",Home],["training","Trening",Dumbbell],["fo
 function App() {
  const [user,setUser]=useState(null),[page,setPage]=useState(["dashboard","training","food","journey","progress","reports","settings"].includes(new URLSearchParams(window.location.search).get("page"))?new URLSearchParams(window.location.search).get("page"):"dashboard"),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const [login,setLogin]=useState("skryskry"),[password,setPassword]=useState(""),[weight,setWeight]=useState("104"),[waist,setWaist]=useState("");
- const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[foodSearch,setFoodSearch]=useState(""),[foodResults,setFoodResults]=useState([]),[foodSearching,setFoodSearching]=useState(false),[foodSearchMessage,setFoodSearchMessage]=useState(""),[selectedFoodProduct,setSelectedFoodProduct]=useState(null),[aiFoodLoading,setAiFoodLoading]=useState(false),[aiFoodMessage,setAiFoodMessage]=useState(""),[barcode,setBarcode]=useState(""),[barcodeSearching,setBarcodeSearching]=useState(false),[scannerOpen,setScannerOpen]=useState(false),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({}),[currentPassword,setCurrentPassword]=useState(""),[newPassword,setNewPassword]=useState(""),[passwordMessage,setPasswordMessage]=useState(""),[aiAnalysis,setAiAnalysis]=useState(""),[aiLoading,setAiLoading]=useState(false),[workoutDate,setWorkoutDate]=useState(today()),[workoutMonth,setWorkoutMonth]=useState(today().slice(0,7)),[settings,setSettings]=useState(defaultSettings),[settingsMessage,setSettingsMessage]=useState(""),[pushEnabled,setPushEnabled]=useState(false),[clock,setClock]=useState(Date.now()),[workoutSets,setWorkoutSets]=useState({}),[customExercises,setCustomExercises]=useState({}),[newExerciseName,setNewExerciseName]=useState(""),[newExerciseMuscle,setNewExerciseMuscle]=useState("Inne"),[newExerciseSets,setNewExerciseSets]=useState("3"),[newExerciseReps,setNewExerciseReps]=useState("10");
+ const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[foodSearch,setFoodSearch]=useState(""),[foodResults,setFoodResults]=useState([]),[foodSearching,setFoodSearching]=useState(false),[foodSearchMessage,setFoodSearchMessage]=useState(""),[selectedFoodProduct,setSelectedFoodProduct]=useState(null),[aiFoodLoading,setAiFoodLoading]=useState(false),[aiFoodMessage,setAiFoodMessage]=useState(""),[barcode,setBarcode]=useState(""),[barcodeSearching,setBarcodeSearching]=useState(false),[scannerOpen,setScannerOpen]=useState(false),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({}),[currentPassword,setCurrentPassword]=useState(""),[newPassword,setNewPassword]=useState(""),[passwordMessage,setPasswordMessage]=useState(""),[aiAnalysis,setAiAnalysis]=useState(""),[aiLoading,setAiLoading]=useState(false),[workoutDate,setWorkoutDate]=useState(today()),[workoutMonth,setWorkoutMonth]=useState(today().slice(0,7)),[settings,setSettings]=useState(defaultSettings),[settingsMessage,setSettingsMessage]=useState(""),[pushEnabled,setPushEnabled]=useState(false),[clock,setClock]=useState(Date.now()),[workoutSets,setWorkoutSets]=useState({}),[customExercises,setCustomExercises]=useState({}),[newExerciseName,setNewExerciseName]=useState(""),[newExerciseMuscle,setNewExerciseMuscle]=useState("Inne"),[newExerciseSets,setNewExerciseSets]=useState("3"),[newExerciseReps,setNewExerciseReps]=useState("10"),[workoutDraftReady,setWorkoutDraftReady]=useState(false);
  async function searchFood(e){e?.preventDefault();if(foodSearch.trim().length<2){setFoodSearchMessage("Wpisz przynajmniej 2 znaki.");return;}setFoodSearching(true);setFoodSearchMessage("");setFoodResults([]);try{const result=await api("/api/food/search?q="+encodeURIComponent(foodSearch.trim()));setFoodResults(result.products||[]);if(!result.products?.length)setFoodSearchMessage("Nie znaleziono produktu z kompletnymi wartościami odżywczymi. Spróbuj innej nazwy.");}catch(err){setFoodSearchMessage(err.message);}finally{setFoodSearching(false);}}
  async function estimateFoodWithAI(){if(!foodName.trim()){setAiFoodMessage("Najpierw wpisz nazwę dania, np. spaghetti bolognese.");return;}const grams=Math.max(1,Number(foodGrams)||100);setAiFoodLoading(true);setAiFoodMessage("");try{const result=await api("/api/ai/food-estimate",{method:"POST",body:JSON.stringify({name:foodName.trim(),grams})});setSelectedFoodProduct(null);setFoodKcal(String(result.kcal));setFoodProtein(String(result.protein));setFoodCarbs(String(result.carbs));setFoodFat(String(result.fat));setAiFoodMessage(result.note||"AI oszacowało wartości dla podanej porcji. To przybliżenie.");}catch(e){setAiFoodMessage(e.message);}finally{setAiFoodLoading(false);}}
  async function lookupBarcode(value=barcode){const code=String(value).replace(/\D/g,"");if(!/^\d{8,14}$/.test(code)){setFoodSearchMessage("Kod EAN powinien zawierać od 8 do 14 cyfr.");return;}setBarcodeSearching(true);setFoodSearchMessage("");setFoodResults([]);try{const result=await api("/api/food/barcode/"+encodeURIComponent(code));if(!result.product){setFoodSearchMessage("Nie znaleziono produktu o tym kodzie. Możesz wyszukać go po nazwie lub dodać ręcznie.");return;}chooseFoodProduct(result.product);setBarcode(code);}catch(e){setFoodSearchMessage(e.message);}finally{setBarcodeSearching(false);}}
@@ -62,12 +62,42 @@ function App() {
   try{const registration=await navigator.serviceWorker.ready;const subscription=await registration.pushManager.getSubscription();if(subscription){await api("/api/push/subscribe",{method:"DELETE",body:JSON.stringify({endpoint:subscription.endpoint})});await subscription.unsubscribe();}setPushEnabled(false);setSettingsMessage("Powiadomienia zostały wyłączone.");}catch(e){setSettingsMessage(e.message);}
  }
  useEffect(()=>{refresh().catch(()=>setLoading(false));},[]);
+ useEffect(()=>{
+  if(!user){setWorkoutDraftReady(false);return;}
+  try{
+   const raw=localStorage.getItem("skryskry-fitness-workout-draft-v1");
+   if(raw){
+    const draft=JSON.parse(raw);
+    if(draft&&typeof draft==="object"){
+     if(draft.date){setWorkoutDate(draft.date);setWorkoutMonth(draft.date.slice(0,7));}
+     if(plans[draft.plan])setSelected(draft.plan);
+     if(draft.workoutSets&&typeof draft.workoutSets==="object")setWorkoutSets(draft.workoutSets);
+     if(draft.customExercises&&typeof draft.customExercises==="object")setCustomExercises(draft.customExercises);
+     if(typeof draft.newExerciseName==="string")setNewExerciseName(draft.newExerciseName);
+     if(typeof draft.newExerciseMuscle==="string")setNewExerciseMuscle(draft.newExerciseMuscle);
+     if(typeof draft.newExerciseSets==="string")setNewExerciseSets(draft.newExerciseSets);
+     if(typeof draft.newExerciseReps==="string")setNewExerciseReps(draft.newExerciseReps);
+    }
+   }
+  }catch(e){console.warn("Nie udało się odtworzyć roboczego treningu",e);}
+  setWorkoutDraftReady(true);
+ },[user]);
+ useEffect(()=>{
+  if(!user||!workoutDraftReady)return;
+  try{
+   localStorage.setItem("skryskry-fitness-workout-draft-v1",JSON.stringify({
+    date:workoutDate,plan:selected,workoutSets,customExercises,
+    newExerciseName,newExerciseMuscle,newExerciseSets,newExerciseReps,
+    savedAt:new Date().toISOString()
+   }));
+  }catch(e){console.warn("Nie udało się automatycznie zapisać treningu",e);}
+ },[user,workoutDraftReady,workoutDate,selected,workoutSets,customExercises,newExerciseName,newExerciseMuscle,newExerciseSets,newExerciseReps]);
  useEffect(()=>{if(!scannerOpen)return;let scanner;let active=true;(async()=>{try{scanner=new Html5Qrcode("food-barcode-reader");await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:150}},async decoded=>{if(!active)return;setScannerOpen(false);setBarcode(decoded);try{await lookupBarcode(decoded);}catch(e){setFoodSearchMessage(e.message);}},()=>{});}catch(e){setFoodSearchMessage("Nie udało się uruchomić aparatu. Zezwól na dostęp do kamery albo wpisz kod ręcznie.");setScannerOpen(false);}})();return()=>{active=false;if(scanner?.isScanning)scanner.stop().catch(()=>{});};},[scannerOpen]);
  useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),30000);return()=>clearInterval(timer);},[]);
 
  async function signIn(e){e.preventDefault();setError("");try{await api("/api/login",{method:"POST",body:JSON.stringify({username:login,password})});setPassword("");await refresh()}catch(e){setError(e.message)}}
  async function logout(){await api("/api/logout",{method:"POST"});setUser(null);setEntries([])}
- async function add(kind,data,date=today()){try{await api("/api/entries",{method:"POST",body:JSON.stringify({date,kind,data})});setEntries(await api("/api/entries"));setError("")}catch(e){setError(e.message)}}
+ async function add(kind,data,date=today()){try{await api("/api/entries",{method:"POST",body:JSON.stringify({date,kind,data})});setEntries(await api("/api/entries"));setError("");return true}catch(e){setError(e.message);return false}}
   function activeWorkoutItems(){
     const saved=(workoutsByDate?.[workoutDate]||[]).filter(entry=>entry.data?.plan===selected).flatMap(entry=>(entry.data?.exercises||[]).filter(ex=>ex.custom).map(ex=>[ex.name,Math.max(1,(ex.sets||[]).length)+" × "+(ex.sets?.[0]?.reps||10),ex.muscle||"Inne"]));
     const extras=[...(customExercises[selected]||[]),...saved];
@@ -95,7 +125,7 @@ function App() {
       const sets=workoutSets[selected+"-"+i]||Array.from({length:count},()=>({kg:"",reps,done:false}));
       return {name:item[0],muscle:item[2],custom:i>=plans[selected].items.length,sets:sets.slice(0,count).map(set=>({kg:Number(set.kg)||0,reps:Number(set.reps)||0,done:Boolean(set.done)}))};
     });
-    await add("workout",{plan:selected,name:plans[selected].name,exercises,completed:exercises.filter(ex=>ex.sets.some(set=>set.done)).map(ex=>ex.name),total:exercises.length},workoutDate);setWorkoutSets({});
+    const saved=await add("workout",{plan:selected,name:plans[selected].name,exercises,completed:exercises.filter(ex=>ex.sets.some(set=>set.done)).map(ex=>ex.name),total:exercises.length},workoutDate);if(saved){try{localStorage.removeItem("skryskry-fitness-workout-draft-v1")}catch{}setWorkoutSets({});}
   }
  async function del(id){await api("/api/entries/"+id,{method:"DELETE"});setEntries(await api("/api/entries"))}
  const byKind=k=>entries.filter(e=>e.kind===k),latestWeight=byKind("weight")[0]?.data?.kg??"104";
@@ -141,7 +171,7 @@ function App() {
  <div className="section-heading"><div><p className="eyebrow green">TWÓJ ROZWÓJ</p><h3>Drzewko osiągnięć</h3></div><button className="secondary" onClick={()=>setPage("journey")}>Otwórz drzewko <GitBranch size={15}/></button></div>
  <div className="xp-summary"><div><span>ZDOBYTE XP</span><b>{earnedXP} XP</b></div><div><span>ODBLOCKOWANE</span><b>{achievements.filter(a=>a.unlocked).length}/{achievements.length}</b></div></div>
  <div className="achievement-mini-list">{achievements.slice(0,3).map(a=><div className={a.unlocked?"achievement-mini unlocked":"achievement-mini"} key={a.id}><a.icon size={19}/><span>{a.title}</span><b>{a.unlocked?"✓":"+"+a.xp+" XP"}</b></div>)}</div>
- </section><section className="panel"><h3>Twój plan treningowy</h3><div className="tabs">{Object.keys(plans).map(k=><button className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k}</button>)}</div><h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p>{plans[selected].items.slice(0,4).map(x=><div className="entry-row"><b>{x[0]}</b><span>{x[1]}</span></div>)}</section></>}
+ </section><section className="panel"><h3>Twój plan treningowy</h3><div className="tabs">{Object.keys(plans).map(k=><button className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k}</button>)}</div><h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p><p className="workout-autosave-note">✓ Wyniki zapisują się automatycznie na tym urządzeniu</p>{plans[selected].items.slice(0,4).map(x=><div className="entry-row"><b>{x[0]}</b><span>{x[1]}</span></div>)}</section></>}
  {page==="training"&&<><div className="page-intro"><p className="eyebrow green">PLANER TRENINGOWY</p><h1>Twój kalendarz</h1><p className="muted">Wybierz dzień, przypisz trening A/B/C lub domowy, a potem uzupełnij ciężar i powtórzenia.</p></div>
  <section className="panel workout-calendar-panel"><div className="calendar-heading"><button className="calendar-arrow" onClick={()=>{const d=new Date(workoutMonth+"-01T12:00:00");d.setMonth(d.getMonth()-1);setWorkoutMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}}>‹</button><h3>{monthLabel}</h3><button className="calendar-arrow" onClick={()=>{const d=new Date(workoutMonth+"-01T12:00:00");d.setMonth(d.getMonth()+1);setWorkoutMonth(d.toISOString().slice(0,7));}}>›</button></div>
  <div className="workout-calendar-grid calendar-weekdays">{["P","W","Ś","C","P","S","N"].map((d,i)=><span key={i}>{d}</span>)}</div>
