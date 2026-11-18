@@ -123,6 +123,20 @@ app.post("/api/entries", auth, async (req, res) => {
   res.status(201).json(result.rows[0]);
 });
 
+app.put("/api/entries/:id", auth, async (req, res) => {
+  const parsed = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    data: z.record(z.any())
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({error:"Nieprawidłowe dane treningu."});
+  const result = await pool.query(
+    "UPDATE entries SET entry_date=COALESCE($1::date,entry_date), data=$2 WHERE id=$3 AND user_id=$4 AND kind='workout' RETURNING id,entry_date,kind,data,created_at",
+    [parsed.data.date || null, JSON.stringify(parsed.data.data), req.params.id, req.session.userId]
+  );
+  if (!result.rowCount) return res.status(404).json({error:"Nie znaleziono treningu do edycji."});
+  res.json(result.rows[0]);
+});
+
 app.delete("/api/entries/:id", auth, async (req, res) => {
   await pool.query("DELETE FROM entries WHERE id=$1 AND user_id=$2", [req.params.id, req.session.userId]);
   res.json({ ok: true });
