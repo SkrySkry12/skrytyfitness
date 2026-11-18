@@ -125,7 +125,7 @@ app.post("/api/entries", auth, async (req, res) => {
 
 app.put("/api/entries/:id", auth, async (req, res) => {
   const parsed = z.object({
-    date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     data: z.record(z.any())
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({error:"Nieprawidłowe dane treningu."});
