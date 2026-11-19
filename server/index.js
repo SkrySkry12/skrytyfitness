@@ -188,8 +188,8 @@ async function offJson(url, timeout = 10000) {
 }
 
 app.get("/api/food/barcode/:code", auth, async (req,res) => {
-  const code = String(req.params.code || "").replace(/\\D/g, "");
-  if (!/^\\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
+  const code = String(req.params.code || "").replace(/\D/g, "");
+  if (!/^\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
   const key = "barcode:" + code;
   const previous = cachedFood(key);
   if (previous) return res.json(previous);
