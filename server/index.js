@@ -148,82 +148,105 @@ app.get("/api/export", auth, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), entries: result.rows });
 });
 
+const foodLookupCache = new Map();
+const FOOD_CACHE_TTL = 5 * 60 * 1000;
+function cachedFood(key) {
+  const item = foodLookupCache.get(key);
+  if (!item || item.expiresAt < Date.now()) { foodLookupCache.delete(key); return null; }
+  return item.value;
+}
+function storeFood(key, value) {
+  foodLookupCache.set(key, { value, expiresAt: Date.now() + FOOD_CACHE_TTL });
+  if (foodLookupCache.size > 250) foodLookupCache.delete(foodLookupCache.keys().next().value);
+}
+function mapOffProduct(product, fallbackCode = null) {
+  if (!product) return null;
+  const n = product.nutriments || {};
+  const rawKcal = n["energy-kcal_100g"] ?? n["energy-kcal_value"];
+  const kcal = rawKcal != null ? Number(rawKcal) :
+    (n["energy_100g"] != null ? Number(n["energy_100g"]) / 4.184 : NaN);
+  const name = product.product_name_pl || product.product_name || product.generic_name;
+  if (!name || !Number.isFinite(kcal) || kcal < 0) return null;
+  return {
+    name: [name, product.brands].filter(Boolean).join(" · ").slice(0, 160),
+    quantity: product.quantity || "",
+    kcal: Math.round(kcal),
+    protein: Number(n.proteins_100g || 0),
+    carbs: Number(n.carbohydrates_100g || 0),
+    fat: Number(n.fat_100g || 0),
+    image: product.image_front_small_url || product.image_front_url || null,
+    barcode: product.code || fallbackCode
+  };
+}
+async function offJson(url, timeout = 10000) {
+  const response = await fetch(url, {
+    headers: { "User-Agent": "SkrySkryFitness/1.1 (https://skryskry.pl)" },
+    signal: AbortSignal.timeout(timeout)
+  });
+  if (!response.ok) throw new Error("Open Food Facts HTTP " + response.status);
+  return response.json();
+}
+
 app.get("/api/food/barcode/:code", auth, async (req,res) => {
+  const code = String(req.params.code || "").replace(/\D/g, "");
+  if (!/^\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
+  const key = "barcode:" + code;
+  const previous = cachedFood(key);
+  if (previous) return res.json(previous);
   try {
-    const code = String(req.params.code || "");
-    if (!/^\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
-    const response = await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,brands,quantity,code,nutriments,image_front_small_url", {
-      headers: { "User-Agent": "SkrySkryFitness/1.0 (food diary; contact: support@skryskry.pl)" },
-      signal: AbortSignal.timeout(9000)
-    });
-    if (!response.ok) return res.status(502).json({ error: "Baza produktów jest chwilowo niedostępna." });
-    const payload = await response.json();
-    if (payload.status !== 1 || !payload.product) return res.json({ product: null, source: "Open Food Facts" });
-    const product = payload.product, n = product.nutriments || {};
-    const kcal = Number(n["energy-kcal_100g"] ?? n["energy-kcal_value"] ?? (Number(n["energy_100g"]) / 4.184));
-    if (!product.product_name || !Number.isFinite(kcal) || kcal < 0) return res.json({ product: null, source: "Open Food Facts" });
-    res.json({ product: {
-      name: [product.product_name, product.brands].filter(Boolean).join(" · ").slice(0,160),
-      quantity: product.quantity || "", kcal: Math.round(kcal),
-      protein: Number(n.proteins_100g || 0), carbs: Number(n.carbohydrates_100g || 0),
-      fat: Number(n.fat_100g || 0), image: product.image_front_small_url || null, barcode: product.code || code
-    }, source: "Open Food Facts" });
+    let payload;
+    try {
+      payload = await offJson("https://world.openfoodfacts.org/api/v3/product/" + encodeURIComponent(code) + ".json?fields=code,product_name,product_name_pl,generic_name,brands,quantity,nutriments,image_front_small_url,image_front_url");
+    } catch (error) {
+      console.warn("OFF v3 barcode lookup failed; trying v2:", error.message);
+      payload = await offJson("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(code) + ".json?fields=code,product_name,product_name_pl,generic_name,brands,quantity,nutriments,image_front_small_url,image_front_url");
+    }
+    const product = mapOffProduct(payload.product, code);
+    const result = { product, source: "Open Food Facts" };
+    storeFood(key, result);
+    res.json(result);
   } catch (error) {
-    console.error("Food barcode lookup error", error);
-    res.status(502).json({ error: "Nie udało się wyszukać kodu. Spróbuj ponownie." });
+    console.error("Food barcode lookup error:", error.message);
+    res.status(502).json({ error: "Nie można połączyć się z bazą Open Food Facts (EAN). Spróbuj ponownie za chwilę." });
   }
 });
 
 app.get("/api/food/search", auth, async (req, res) => {
+  const parsed = z.string().trim().min(2).max(100).safeParse(String(req.query.q || ""));
+  if (!parsed.success) return res.status(400).json({ error: "Wpisz co najmniej 2 znaki." });
+  const query = parsed.data;
+  const key = "search:" + query.toLocaleLowerCase("pl-PL");
+  const previous = cachedFood(key);
+  if (previous) return res.json(previous);
   try {
-    const query = z.string().trim().min(2).max(100).safeParse(String(req.query.q || ""));
-    if (!query.success) return res.status(400).json({ error: "Wpisz co najmniej 2 znaki." });
-
-    // The legacy CGI search endpoint supports full-text product-name searches.
-    // API v2 /search is filter-based and does not support search_terms.
+    // Full-text search is still served by OFF's legacy v1 endpoint.
     const url = new URL("https://world.openfoodfacts.org/cgi/search.pl");
-    url.searchParams.set("search_terms", query.data);
+    url.searchParams.set("search_terms", query);
     url.searchParams.set("search_simple", "1");
     url.searchParams.set("action", "process");
     url.searchParams.set("json", "1");
     url.searchParams.set("page_size", "20");
-    url.searchParams.set("fields", "product_name,product_name_pl,lc,lang,brands,quantity,code,nutriments,image_front_small_url");
+    url.searchParams.set("fields", "product_name,product_name_pl,generic_name,lc,lang,brands,quantity,code,nutriments,image_front_small_url,image_front_url");
     url.searchParams.set("lc", "pl");
     url.searchParams.set("cc", "pl");
-
-    const response = await fetch(url, {
-      headers: { "User-Agent": "SkrySkryFitness/1.0 (food diary; contact: support@skryskry.pl)" },
-      signal: AbortSignal.timeout(12000)
-    });
-    if (!response.ok) return res.status(502).json({ error: "Baza produktów jest chwilowo niedostępna." });
-    const payload = await response.json();
-    const products = (payload.products || []).map(product => {
-      const n = product.nutriments || {};
-      const kcal = Number(n["energy-kcal_100g"] ?? n["energy-kcal_value"] ?? (Number(n["energy_100g"]) / 4.184));
-      const localName = product.product_name_pl || (product.lc === "pl" ? product.product_name : "") || product.product_name;
-      return {
-        name: [localName, product.brands].filter(Boolean).join(" · ").slice(0, 160),
-        quantity: product.quantity || "",
-        kcal: Number.isFinite(kcal) ? Math.round(kcal) : null,
-        protein: Number(n.proteins_100g || 0),
-        carbs: Number(n.carbohydrates_100g || 0),
-        fat: Number(n.fat_100g || 0),
-        image: product.image_front_small_url || null,
-        barcode: product.code || null,
-        language: product.lc || product.lang || null
-      };
-    }).filter(p => p.name && p.kcal !== null && p.kcal >= 0);
+    const payload = await offJson(url, 12000);
+    const products = (payload.products || []).map(product => ({
+      ...mapOffProduct(product),
+      language: product.lc || product.lang || null
+    })).filter(product => product && product.name);
     products.sort((a, b) => Number(b.language === "pl") - Number(a.language === "pl"));
-    res.json({ products: products.slice(0, 10), source: "Open Food Facts" });
+    const result = { products: products.slice(0, 10), source: "Open Food Facts" };
+    storeFood(key, result);
+    res.json(result);
   } catch (error) {
-    console.error("Food search error", error);
-    res.status(502).json({ error: "Nie udało się wyszukać produktu. Spróbuj ponownie." });
+    console.error("Food search error:", error.message);
+    res.status(502).json({ error: "Nie można połączyć się z bazą Open Food Facts (wyszukiwanie). Spróbuj ponownie za chwilę." });
   }
 });
 
 app.post("/api/ai/food-estimate", auth, async (req,res) => {
   try {
-    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
+    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Szacowanie AI jest opcjonalne i wymaga klucza OpenAI API oraz aktywnego rozliczania API w Coolify. Wyszukiwanie produktów i EAN działają bez AI."});
     const parsed = z.object({
       name: z.string().trim().min(2).max(180),
       grams: z.number().finite().min(1).max(5000)
