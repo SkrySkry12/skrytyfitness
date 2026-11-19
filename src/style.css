@@ -774,3 +774,9 @@ body,.login-shell{
 .exercise-log-card>div:first-child b{color:#f2f5ff}
 .exercise-log-card>div:first-child p{color:#9eafd0}
 @media(max-width:700px){.exercise-set-controls{margin-top:9px}.exercise-set-controls button{width:34px;height:34px}}
+
+
+/* Read-only workout preview: never loads values into the active workout form */
+.workout-preview-panel{margin-top:10px;padding:10px 12px;border:1px solid rgba(117,170,255,.18);border-radius:12px;background:rgba(117,170,255,.055)}
+.workout-preview-panel[hidden]{display:none}
+.preview-toggle{white-space:nowrap;flex-shrink:0}
