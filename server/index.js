@@ -246,7 +246,7 @@ app.get("/api/food/search", auth, async (req, res) => {
 
 app.post("/api/ai/food-estimate", auth, async (req,res) => {
   try {
-    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Brak OPENAI_API_KEY w konfiguracji Coolify."});
+    if (!process.env.OPENAI_API_KEY) return res.status(503).json({error:"Szacowanie AI jest opcjonalne i wymaga klucza OpenAI API oraz aktywnego rozliczania API w Coolify. Wyszukiwanie produktów i EAN działają bez AI."});
     const parsed = z.object({
       name: z.string().trim().min(2).max(180),
       grams: z.number().finite().min(1).max(5000)
