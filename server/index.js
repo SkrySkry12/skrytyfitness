@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import webpush from "web-push";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { pool, initDb } from "./db.js";
@@ -21,9 +22,19 @@ const isProduction = process.env.NODE_ENV === "production";
 const DEFAULT_TZ = process.env.APP_TIMEZONE || "Europe/Warsaw";
 const AI_TIMEOUT = 30000;
 
-if (isProduction && !process.env.SESSION_SECRET) {
-  throw new Error("Brak SESSION_SECRET. W trybie produkcyjnym ustaw długi, losowy SESSION_SECRET w zmiennych środowiskowych (Coolify).");
+// SESSION_SECRET from env wins. Without it we no longer crash: a random secret is generated once
+// and kept in the database, so sessions survive restarts and redeploys.
+async function resolveSessionSecret() {
+  const fromEnv = String(process.env.SESSION_SECRET || "").trim();
+  if (fromEnv) return fromEnv;
+  if (!isProduction) return "development-only-change-this-secret";
+  await pool.query("CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+  await pool.query("INSERT INTO app_config (key, value) VALUES ('session_secret', $1) ON CONFLICT (key) DO NOTHING", [crypto.randomBytes(48).toString("hex")]);
+  const { rows } = await pool.query("SELECT value FROM app_config WHERE key = 'session_secret'");
+  console.warn("[UWAGA] Brak SESSION_SECRET w zmiennych środowiskowych — używam losowego sekretu zapisanego w bazie. Możesz ustawić własny SESSION_SECRET w Coolify.");
+  return rows[0].value;
 }
+const sessionSecret = await resolveSessionSecret();
 
 // Wraps async route handlers so rejected promises reach the error middleware instead of crashing Node.
 const h = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -46,7 +57,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "200kb" }));
 app.use(session({
   store: new PgStore({ pool, tableName: "session", createTableIfMissing: true }),
-  secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: "lax", secure: "auto", maxAge: 1000 * 60 * 60 * 24 * 14 }
