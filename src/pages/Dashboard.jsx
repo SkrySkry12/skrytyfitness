@@ -40,7 +40,7 @@ export function Dashboard() {
   const latest = weights[0] ? num(weights[0].data?.kg) : null;
   const todayFood = entries.filter(e => e.kind === "food" && dayKey(e) === today);
   const totals = useMemo(() => foodTotals(todayFood), [todayFood]);
-  const ach = buildAchievements(stats);
+  const ach = useMemo(() => buildAchievements(stats, entries, settings), [stats, entries, settings]);
   const workedOutToday = entries.some(e => e.kind === "workout" && dayKey(e) === today);
 
   const start = settings.startWeight, target = settings.targetWeight;
@@ -82,11 +82,12 @@ export function Dashboard() {
           <button type="button" className="secondary small" onClick={() => navigate("journey")}>Otwórz <GitBranch size={15} /></button>
         </div>
         <div className="xp-summary">
-          <div><span>Poziom</span><b>{ach.level}</b></div>
+          <div><span>Poziom</span><b>{ach.level}</b><small className="muted">{ach.name}</small></div>
           <div><span>Zdobyte XP</span><b>{ach.xp}</b></div>
           <div><span>Odblokowane</span><b>{ach.unlocked}/{ach.list.length}</b></div>
         </div>
-        <div className="xp-track"><span style={{ width: (ach.xp % 100) + "%" }} /></div>
+        <div className="xp-track"><span style={{ width: ach.pct + "%" }} /></div>
+        <small className="muted">{ach.toNext} XP do poziomu {ach.level + 1}{ach.goalStates.length ? ` · cele: ${ach.achievedGoals}/${ach.goalStates.length}` : ""}</small>
       </section>
 
       <section className="card">

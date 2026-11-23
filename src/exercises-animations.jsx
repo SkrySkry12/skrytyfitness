@@ -163,6 +163,19 @@ const ANIMS = {
     dur: 3, handProp: "bar", props: [...seatProps(), P.rect(98, 140, 22, 8, 4), P.line(82, 10, 82, 40, 3)],
     frames: pingpong(seated({ t: 182, hand: [96, 50], armBend: -1 }), seated({ t: 190, hand: [92, 92], armBend: -1 }))
   },
+  // Pull-up bar between two posts; hands stay on the bar, the body moves up and down.
+  "pull-up": {
+    dur: 3.2, props: [P.line(58, 16, 142, 16, 5), P.line(62, 16, 62, GROUND, 4), P.line(138, 16, 138, GROUND, 4)],
+    frames: pingpong(
+      { hip: [98, 126], t: 180, hand: [100, 18], armBend: -1, th: 12, sh: -45 },
+      { hip: [97, 94], t: 186, hand: [100, 18], armBend: -1, th: 18, sh: -40 })
+  },
+  "dead-hang": {
+    dur: 4, props: [P.line(58, 16, 142, 16, 5), P.line(62, 16, 62, GROUND, 4), P.line(138, 16, 138, GROUND, 4)],
+    frames: pingpong(
+      { hip: [98, 126], t: 180, hand: [100, 18], armBend: -1, th: 10, sh: -40 },
+      { hip: [98, 123], t: 181, hand: [100, 18], armBend: -1, th: 14, sh: -44 }, 30)
+  },
   "seated-row": {
     dur: 3, handProp: "handle", props: [P.rect(50, 170, 60, 7), P.line(80, 177, 80, GROUND, 4), P.rect(150, 160, 6, 36, 2), P.line(175, 120, 175, GROUND, 5)],
     frames: pingpong(
