@@ -28,7 +28,7 @@ Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
 Stan sprzed modernizacji jest zachowany w gałęzi `backup-przed-ulepszeniami`. W Coolify wystarczy zmienić gałąź źródłową na `backup-przed-ulepszeniami` i wykonać Redeploy (dane w bazie pozostają nienaruszone).
 
 ## Wdrożenie
-W Coolify wybierz Docker Compose (`docker-compose.yml`), ustaw `ADMIN_USERNAME=skryskry`, własne `ADMIN_PASSWORD` (minimum 12 znaków), `SESSION_SECRET` (**wymagany** przy `NODE_ENV=production`), `DB_PASSWORD` oraz zgodny `DATABASE_URL`. Wystaw port 3000 i włącz HTTPS. Pełna lista zmiennych: `.env.example` (nowe zmienne są opcjonalne).
+W Coolify wybierz Docker Compose (`docker-compose.yml`), ustaw `ADMIN_USERNAME=skryskry`, własne `ADMIN_PASSWORD` (minimum 12 znaków), `SESSION_SECRET` (zalecany; jeśli go brak, aplikacja sama wygeneruje losowy sekret i zapisze go w bazie), `DB_PASSWORD` oraz zgodny `DATABASE_URL`. Wystaw port 3000 i włącz HTTPS. Pełna lista zmiennych: `.env.example` (nowe zmienne są opcjonalne).
 
 Uwaga: ustaw hasło wyłącznie w zmiennych środowiskowych Coolify. Nie commituj `.env`.
 
