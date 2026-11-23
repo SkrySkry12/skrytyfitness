@@ -130,10 +130,13 @@ export function Training() {
   };
 
   const addCustomExercise = () => {
-    const name = newEx.name.trim();
-    if (!name) return;
+    const typed = newEx.name.trim();
+    if (!typed) return;
+    // Library exercise picked from the suggestions → keep its full label, muscle group and demo.
+    const lib = findExercise(typed);
+    const name = lib ? exerciseLabel(lib) : typed;
     const scheme = `${Math.max(1, Math.min(10, Number(newEx.sets) || 3))} × ${Math.max(1, Math.min(100, Number(newEx.reps) || 10))}`;
-    setCustomExercises(cur => ({ ...cur, [plan]: [...(cur[plan] || []), { name, muscle: newEx.muscle || "Inne", scheme }] }));
+    setCustomExercises(cur => ({ ...cur, [plan]: [...(cur[plan] || []), { name, muscle: lib?.muscle || newEx.muscle || "Inne", scheme }] }));
     setNewEx(v => ({ ...v, name: "" }));
     toast(`Dodano ćwiczenie „${name}”`, { type: "info" });
   };
@@ -280,13 +283,17 @@ export function Training() {
       <section className="card">
         <h3>Dodaj własne ćwiczenie</h3>
         <div className="form-grid">
-          <label className="field span-2"><span>Nazwa</span><input placeholder="Np. Wyciskanie hantli na skosie" value={newEx.name} onChange={e => setNewEx(v => ({ ...v, name: e.target.value }))} /></label>
+          <label className="field span-2"><span>Nazwa</span><input list="exercise-library" placeholder="Np. Podciąganie na drążku" value={newEx.name} onChange={e => setNewEx(v => ({ ...v, name: e.target.value }))} /></label>
           <label className="field"><span>Serie</span><input type="number" min="1" max="10" value={newEx.sets} onChange={e => setNewEx(v => ({ ...v, sets: e.target.value }))} /></label>
           <label className="field"><span>Powtórzenia</span><input type="number" min="1" max="100" value={newEx.reps} onChange={e => setNewEx(v => ({ ...v, reps: e.target.value }))} /></label>
           <label className="field span-2"><span>Partia mięśniowa</span>
             <select value={newEx.muscle} onChange={e => setNewEx(v => ({ ...v, muscle: e.target.value }))}>{MUSCLES.map(m => <option key={m}>{m}</option>)}</select>
           </label>
         </div>
+        <datalist id="exercise-library">
+          {Object.values(EXERCISES).map(ex => <option key={ex.id} value={ex.name}>{ex.original}</option>)}
+        </datalist>
+        <small className="muted">Zacznij pisać, aby wybrać ćwiczenie z biblioteki (z animacją) albo wpisz własną nazwę.</small>
         <button type="button" className="secondary full" onClick={addCustomExercise} disabled={!newEx.name.trim()}><Plus size={16} /> Dodaj ćwiczenie</button>
       </section>
 

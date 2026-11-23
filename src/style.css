@@ -319,6 +319,60 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 .tree-node.unlocked .tree-check { color: var(--success); }
 .tree-connector { width: 2px; height: 18px; margin-left: 35px; background: var(--surface-3); }
 .tree-connector.on { background: var(--warning); }
+.level-num { font-size: 24px; font-weight: 900; line-height: 1; }
+.xp-summary small { font-size: var(--fs-xs); }
+
+/* goals */
+.goal-list { display: flex; flex-direction: column; gap: 10px; }
+.goal-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); animation: fadeIn .25s ease; }
+.goal-card.done { border-color: rgba(16,185,129,.45); background: linear-gradient(135deg, rgba(16,185,129,.12), transparent 70%), var(--surface-2); }
+.goal-top { display: flex; align-items: center; gap: 10px; }
+.goal-top h4 { margin: 0; font-size: var(--fs-md); }
+.goal-top small { display: block; font-size: var(--fs-xs); }
+.goal-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--accent-glow); color: var(--accent); }
+.goal-card.done .goal-icon { background: rgba(16,185,129,.2); color: var(--success); }
+.goal-bar { height: 10px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.goal-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .6s ease; }
+.goal-card.done .goal-bar span { background: linear-gradient(90deg, #10b981, #34d399); }
+.goal-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; font-size: var(--fs-sm); color: var(--text-2); }
+.goal-meta b { color: var(--text); }
+.goal-pct { margin-left: auto; font-weight: 800; color: var(--accent); }
+.goal-card.done .goal-pct { color: var(--success); }
+.goal-note { margin: 0; font-size: var(--fs-xs); color: var(--text-2); }
+.goal-note.success { color: var(--success); font-weight: 700; }
+.goal-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 12px 4px; color: var(--text-2); }
+.goal-empty svg { color: var(--accent); }
+.goal-empty p { margin: 0; font-size: var(--fs-sm); }
+.goal-empty .chip-row { justify-content: center; }
+.template-list { display: flex; flex-direction: column; gap: 12px; }
+.template-group { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.template-group h4 { margin: 0; font-size: var(--fs-md); }
+.template-group p { margin: 0; }
+.template-group .chip { background: var(--surface); }
+.template-group .chip.active { opacity: 1; }
+.readonly-value { min-height: 48px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; background: var(--surface-2); color: var(--text-2); font-weight: 700; }
+
+/* achievement branches */
+.branches { display: flex; flex-direction: column; gap: 12px; }
+.branch { display: flex; flex-direction: column; gap: 10px; }
+.branch-head {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--branch) 35%, transparent); color: var(--text); text-align: left;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--branch) 14%, transparent), transparent 70%), var(--surface);
+}
+.branch-head b { display: block; font-size: var(--fs-md); }
+.branch-head small { color: var(--text-2); font-size: var(--fs-xs); }
+.branch-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; color: var(--branch); background: color-mix(in srgb, var(--branch) 18%, transparent); }
+.branch-mini { width: 56px; height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; flex: none; }
+.branch-mini span { display: block; height: 100%; background: var(--branch); border-radius: inherit; }
+.chev { color: var(--text-3); transition: transform .2s; flex: none; }
+.chev.open { transform: rotate(180deg); }
+.branch .tree { padding-left: 8px; border-left: 2px solid color-mix(in srgb, var(--branch) 30%, transparent); margin-left: 19px; }
+.branch .tree-connector { margin-left: 30px; }
+.branch .tree-connector.on { background: var(--branch); }
+.node-progress { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.node-progress .progress { flex: 1; height: 6px; }
+.node-progress small { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* ---------- training ---------- */
 .calendar-head { display: flex; align-items: center; justify-content: space-between; text-align: center; }

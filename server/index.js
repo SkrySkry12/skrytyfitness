@@ -147,7 +147,16 @@ const settingsSchema = z.object({
     label: z.string().max(80),
     time: z.string().regex(/^\d{2}:\d{2}$/),
     enabled: z.boolean().optional()
-  }).passthrough()).max(20).optional()
+  }).passthrough()).max(20).optional(),
+  // Strength / fitness goals (progress is computed on the client from workouts).
+  goals: z.array(z.object({
+    id: z.string().max(40),
+    exId: z.string().max(60),
+    metric: z.enum(["kg", "reps", "seconds"]),
+    target: z.number().positive().max(2000),
+    title: z.string().max(80),
+    createdAt: z.string().max(20).optional()
+  })).max(40).optional()
 }).passthrough();
 
 app.get("/api/settings", auth, h(async (req, res) => {
@@ -229,12 +238,13 @@ app.get("/api/stats", auth, h(async (req, res) => {
        COUNT(*) FILTER (WHERE kind='workout')::int AS workouts,
        COUNT(*) FILTER (WHERE kind='food')::int AS food_entries,
        COUNT(DISTINCT entry_date) FILTER (WHERE kind='food')::int AS food_days,
+       COUNT(DISTINCT entry_date) FILTER (WHERE kind='water')::int AS water_days,
        MIN(entry_date) AS first_entry
      FROM entries WHERE user_id=$1`,
     [req.session.userId]
   );
   const r = result.rows[0] || {};
-  res.json({ workouts: r.workouts || 0, foodEntries: r.food_entries || 0, foodDays: r.food_days || 0, firstEntry: r.first_entry || null });
+  res.json({ workouts: r.workouts || 0, foodEntries: r.food_entries || 0, foodDays: r.food_days || 0, waterDays: r.water_days || 0, firstEntry: r.first_entry || null });
 }));
 
 app.post("/api/entries", auth, h(async (req, res) => {

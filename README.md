@@ -1,6 +1,13 @@
-# SkrySkry Fitness 2.2
+# SkrySkry Fitness 2.3
 
 Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
+
+## Nowość 2.3 – cele i rozbudowane drzewko
+- **Moje cele** (zakładka „Drzewko”) – przycisk „Dodaj cel” pozwala wybrać gotowy cel (np. pierwsze / 5 / 10 podciągnięć, wyciskanie na maszynie 60/80/100 kg, suwnica, pompki 10/20/30, deska 60 s) albo ustawić własny: ćwiczenie + ciężar w kg, liczba powtórzeń lub sekundy.
+- Postęp liczy się sam z zapisanych treningów (tylko serie odhaczone jako zrobione): pasek postępu, aktualny rekord vs cel i data osiągnięcia. Cel można usunąć.
+- **Nowe ćwiczenia**: „Podciąganie na drążku”, „Podciąganie z gumą lub negatywy” (dla początkujących) i „Zwis na drążku” – z animacją. Przy dodawaniu własnego ćwiczenia pojawiają się podpowiedzi z biblioteki.
+- **Drzewko osiągnięć** – 4 gałęzie (Nawyki, Dieta, Siła i rekordy, Waga i pomiary), XP, poziomy z nazwami (od Nowicjusza do Legendy) i +75 XP za każdy osiągnięty cel.
+- Cele zapisują się osobno dla każdego profilu. Nie trzeba żadnych nowych zmiennych środowiskowych.
 
 ## Co nowego w 2.2
 - **AI przez Abacus.AI zamiast OpenAI** – szacowanie kalorii i makro posiłków oraz analiza coacha korzystają z Abacus.AI RouteLLM (model domyślnie `gpt-4.1-mini`). Wystarczy opisać posiłek, np. „2 jajka sadzone i kromka chleba z masłem” – AI zwraca kcal, B/W/T i rozbicie na składniki.
