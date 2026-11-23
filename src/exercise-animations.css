@@ -1,0 +1,18 @@
+/* Stick-figure exercise animations (used by src/exercises-animations.jsx) */
+.exercise-animation { display: block; max-width: 100%; overflow: visible; }
+.exercise-animation .fig-joint { transform-box: view-box; transform-origin: 0 0; }
+.exercise-animation .fig-limb { stroke: var(--anim-body, #f9fafb); stroke-width: 7; stroke-linecap: round; fill: none; }
+.exercise-animation .fig-torso { stroke-width: 8; }
+.exercise-animation .fig-foot { stroke-width: 6; }
+.exercise-animation .fig-far { stroke: var(--anim-far, #6b7280); }
+.exercise-animation .fig-head { fill: var(--anim-body, #f9fafb); }
+.exercise-animation .fig-prop { fill: var(--anim-prop, #f59e0b); stroke: var(--anim-prop, #f59e0b); stroke-width: 1; }
+.exercise-animation .fig-prop-hole { fill: var(--anim-bg, #111827); stroke: none; }
+.exercise-animation .fig-prop-line { stroke: var(--anim-prop, #f59e0b); stroke-width: 5; stroke-linecap: round; }
+.exercise-animation .fig-machine { stroke: var(--anim-machine, #374151); stroke-linecap: round; fill: none; }
+.exercise-animation .fig-machine-fill { fill: var(--anim-machine, #374151); }
+.exercise-animation .fig-ground { stroke: var(--anim-machine, #374151); stroke-width: 2; stroke-linecap: round; }
+.exercise-animation .fig-rope { fill: none; stroke: var(--anim-accent, #3b82f6); stroke-width: 2.5; stroke-linecap: round; }
+@media (prefers-reduced-motion: reduce) {
+  .exercise-animation * { animation-duration: 8s !important; }
+}

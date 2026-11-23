@@ -1,252 +1,302 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Html5Qrcode } from "html5-qrcode";
-import { Activity, Dumbbell, Home, LogOut, Settings, TrendingDown, Utensils, Weight, Search, LoaderCircle, Camera, X, Trophy, GitBranch, Sprout, Clock3, Bell, CheckCircle2, Target, Flame } from "lucide-react";
+import { Activity, BarChart3, Dumbbell, Home, LogIn, LogOut, Menu, Settings as SettingsIcon, TrendingDown, Trophy, Utensils } from "lucide-react";
 import "./style.css";
+import { AppContext } from "./context.js";
+import { ToastProvider, useToast } from "./components/Toast.jsx";
+import { BottomSheet } from "./components/BottomSheet.jsx";
+import { Spinner } from "./components/Spinner.jsx";
+import { Onboarding } from "./components/Onboarding.jsx";
+import { Dashboard } from "./pages/Dashboard.jsx";
+import { Training } from "./pages/Training.jsx";
+import { Food } from "./pages/Food.jsx";
+import { Progress } from "./pages/Progress.jsx";
+import { Journey } from "./pages/Journey.jsx";
+import { Reports } from "./pages/Reports.jsx";
+import { Settings } from "./pages/Settings.jsx";
+import { api, ApiError, OfflineError, enqueueEntry, flushQueue, onUnauthorized, readQueue, writeQueue } from "./lib/api.js";
+import { todayIn } from "./lib/dates.js";
+import { fmtKg } from "./lib/format.js";
+import { mergeSettings, needsOnboarding } from "./lib/settings.js";
+import { statsFromEntries } from "./lib/achievements.js";
+import { currentSubscription } from "./lib/push.js";
 
-const today = () => { const d=new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"); };
-const defaultSettings = {
-  startWeight:null,targetWeight:88,remindersEnabled:true,
-  meals:[
-    {id:"breakfast",label:"Śniadanie",time:"08:00",enabled:true},
-    {id:"second-breakfast",label:"II śniadanie",time:"11:00",enabled:true},
-    {id:"lunch",label:"Obiad",time:"14:00",enabled:true},
-    {id:"snack",label:"Podwieczorek",time:"17:00",enabled:true},
-    {id:"dinner",label:"Kolacja",time:"20:00",enabled:true}
-  ]
+const PAGES = {
+  dashboard: { label: "Przegląd", icon: Home, Component: Dashboard },
+  training: { label: "Trening", icon: Dumbbell, Component: Training },
+  food: { label: "Dieta", icon: Utensils, Component: Food },
+  progress: { label: "Postępy", icon: TrendingDown, Component: Progress },
+  journey: { label: "Drzewko", icon: Trophy, Component: Journey },
+  reports: { label: "Raporty", icon: BarChart3, Component: Reports },
+  settings: { label: "Ustawienia", icon: SettingsIcon, Component: Settings }
 };
-function urlBase64ToUint8Array(value) {
-  const padding="=".repeat((4-value.length%4)%4);
-  const base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");
-  const raw=window.atob(base64);
-  return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)));
+const MAIN_NAV = ["dashboard", "training", "food", "progress"];
+const MORE_NAV = ["journey", "reports", "settings"];
+const THEME_COLORS = { blue: "#0a0f1e", pink: "#0f0a0d" };
+const OFFLINE_MSG = "Brak połączenia — zmiany zostaną zsynchronizowane po powrocie online";
+
+const pageFromUrl = () => {
+  const p = new URLSearchParams(window.location.search).get("page");
+  return PAGES[p] ? p : "dashboard";
+};
+
+const sortEntries = list => [...list].sort((a, b) =>
+  String(b.entry_date).slice(0, 10).localeCompare(String(a.entry_date).slice(0, 10)) ||
+  String(b.created_at || "").localeCompare(String(a.created_at || "")));
+
+/** Pending (offline) entries are shown with negative ids until synced. */
+const queuedAsEntries = () => readQueue().map(q => ({ id: q.tempId, entry_date: q.date, kind: q.kind, data: q.data, created_at: q.createdAt, pending: true }));
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  root.classList.toggle("theme-pink", theme === "pink");
+  root.classList.toggle("theme-blue", theme !== "pink");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[theme] || THEME_COLORS.blue);
 }
-const plans = {
-  A: { name: "FBW A — Poniedziałek", focus: "Całe ciało + stabilizacja", items: [["Chest Press","3 × 10–12","Klatka piersiowa"],["Lat Pulldown","3 × 10–12","Plecy"],["Leg Press","3 × 12","Nogi"],["Seated Leg Curl","3 × 12","Tył uda"],["Biceps Curl","2 × 12","Biceps"],["Triceps Pushdown","2 × 12","Triceps"],["Glute Bridge","2 × 12","Pośladki"]] },
-  B: { name: "FBW B — Środa", focus: "Całe ciało + brzuch", items: [["Dumbbell Bench Press","3 × 10–12","Klatka piersiowa"],["Seated Row","3 × 12","Plecy"],["Leg Extension","3 × 12","Przód uda"],["Seated Leg Curl","3 × 12","Tył uda"],["Lateral Raises","2 × 15","Barki"],["Face Pull","2 × 15","Górne plecy"],["Glute Bridge","2 × 12","Pośladki"]] },
-  C: { name: "FBW C — Piątek", focus: "Całe ciało + stabilizacja", items: [["Chest Press","3 × 12","Klatka piersiowa"],["Lat Pulldown","3 × 12","Plecy"],["Leg Press","3 × 12","Nogi"],["Hip Thrust","2 × 12","Pośladki"],["Biceps Curl","2 × 12","Biceps"],["Triceps Pushdown","2 × 12","Triceps"],["Side Plank","2 × 15–20 s","Brzuch"]] },
-  HOME: { name: "Trening domowy", focus: "Bez sprzętu · spokojne tempo", items: [["Przysiady do krzesła","3 × 12","Nogi"],["Pompki przy ścianie lub blacie","3 × 8–12","Klatka piersiowa"],["Most biodrowy","3 × 15","Pośladki"],["Bird dog","2 × 10 / strona","Stabilizacja"],["Wykroki w miejscu","2 × 8 / noga","Nogi"],["Deska na kolanach","3 × 20 s","Brzuch"]] }
-};
-const nav = [["dashboard","Przegląd",Home],["training","Trening",Dumbbell],["food","Dieta",Utensils],["journey","Drzewko",Trophy],["progress","Postępy",TrendingDown],["reports","Raporty",Activity],["settings","Ustawienia",Settings]];
+
+function Login({ onLoggedIn }) {
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async e => {
+    e.preventDefault();
+    setError(""); setBusy(true);
+    try {
+      await api("/api/login", { method: "POST", body: JSON.stringify({ username: login.trim(), password }) });
+      setPassword("");
+      await onLoggedIn();
+    } catch (err) {
+      setError(err instanceof OfflineError ? "Brak połączenia z internetem." : err.message);
+    } finally { setBusy(false); }
+  };
+  return (
+    <main className="login-shell">
+      <div className="login-card">
+        <div className="brand-mark"><Activity size={28} /></div>
+        <p className="eyebrow">TWOJA OSOBISTA TRANSFORMACJA</p>
+        <h1>SkrySkry <span className="accent-text">Fitness</span></h1>
+        <p className="muted">Zaloguj się, aby przejść do swojego panelu.</p>
+        <form onSubmit={submit}>
+          <label className="field"><span>Login</span><input value={login} onChange={e => setLogin(e.target.value)} autoComplete="username" autoCapitalize="none" required /></label>
+          <label className="field"><span>Hasło</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required /></label>
+          <button className="primary full" disabled={busy}>{busy ? <Spinner /> : <LogIn size={17} />} Zaloguj się</button>
+        </form>
+        {error && <p className="error-box" role="alert">{error}</p>}
+        <p className="tiny">SKR FITNESS · SLEEPER BUILD JOURNEY</p>
+      </div>
+    </main>
+  );
+}
+
 function App() {
- const [user,setUser]=useState(null),[page,setPage]=useState(["dashboard","training","food","journey","progress","reports","settings"].includes(new URLSearchParams(window.location.search).get("page"))?new URLSearchParams(window.location.search).get("page"):"dashboard"),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
- const [login,setLogin]=useState("skryskry"),[password,setPassword]=useState(""),[weight,setWeight]=useState("104"),[waist,setWaist]=useState("");
- const [foodName,setFoodName]=useState(""),[foodGrams,setFoodGrams]=useState("100"),[foodKcal,setFoodKcal]=useState(""),[foodProtein,setFoodProtein]=useState(""),[foodCarbs,setFoodCarbs]=useState(""),[foodFat,setFoodFat]=useState(""),[foodSearch,setFoodSearch]=useState(""),[foodResults,setFoodResults]=useState([]),[foodSearching,setFoodSearching]=useState(false),[foodSearchMessage,setFoodSearchMessage]=useState(""),[selectedFoodProduct,setSelectedFoodProduct]=useState(null),[aiFoodLoading,setAiFoodLoading]=useState(false),[aiFoodMessage,setAiFoodMessage]=useState(""),[barcode,setBarcode]=useState(""),[barcodeSearching,setBarcodeSearching]=useState(false),[scannerOpen,setScannerOpen]=useState(false),[meal,setMeal]=useState("Śniadanie"),[selected,setSelected]=useState("A"),[done,setDone]=useState({}),[currentPassword,setCurrentPassword]=useState(""),[newPassword,setNewPassword]=useState(""),[passwordMessage,setPasswordMessage]=useState(""),[aiAnalysis,setAiAnalysis]=useState(""),[aiLoading,setAiLoading]=useState(false),[workoutDate,setWorkoutDate]=useState(today()),[workoutMonth,setWorkoutMonth]=useState(today().slice(0,7)),[settings,setSettings]=useState(defaultSettings),[settingsMessage,setSettingsMessage]=useState(""),[pushEnabled,setPushEnabled]=useState(false),[clock,setClock]=useState(Date.now()),[workoutSets,setWorkoutSets]=useState({}),[workoutSetCounts,setWorkoutSetCounts]=useState({}),[editingWorkoutId,setEditingWorkoutId]=useState(null),[expandedWorkoutPreviewId,setExpandedWorkoutPreviewId]=useState(null),[customExercises,setCustomExercises]=useState({}),[newExerciseName,setNewExerciseName]=useState(""),[newExerciseMuscle,setNewExerciseMuscle]=useState("Inne"),[newExerciseSets,setNewExerciseSets]=useState("3"),[newExerciseReps,setNewExerciseReps]=useState("10");
- async function searchFood(e){e?.preventDefault();if(foodSearch.trim().length<2){setFoodSearchMessage("Wpisz przynajmniej 2 znaki.");return;}setFoodSearching(true);setFoodSearchMessage("");setFoodResults([]);try{const result=await api("/api/food/search?q="+encodeURIComponent(foodSearch.trim()));setFoodResults(result.products||[]);if(!result.products?.length)setFoodSearchMessage("Nie znaleziono produktu z kompletnymi wartościami odżywczymi. Spróbuj innej nazwy.");}catch(err){setFoodSearchMessage(err.message);}finally{setFoodSearching(false);}}
- async function estimateFoodWithAI(){if(!foodName.trim()){setAiFoodMessage("Najpierw wpisz nazwę dania, np. spaghetti bolognese.");return;}const grams=Math.max(1,Number(foodGrams)||100);setAiFoodLoading(true);setAiFoodMessage("");try{const result=await api("/api/ai/food-estimate",{method:"POST",body:JSON.stringify({name:foodName.trim(),grams})});setSelectedFoodProduct(null);setFoodKcal(String(result.kcal));setFoodProtein(String(result.protein));setFoodCarbs(String(result.carbs));setFoodFat(String(result.fat));setAiFoodMessage(result.note||"AI oszacowało wartości dla podanej porcji. To przybliżenie.");}catch(e){setAiFoodMessage(e.message);}finally{setAiFoodLoading(false);}}
- async function lookupBarcode(value=barcode){const code=String(value).replace(/\D/g,"");if(!/^\d{8,14}$/.test(code)){setFoodSearchMessage("Kod EAN powinien zawierać od 8 do 14 cyfr.");return;}setBarcodeSearching(true);setFoodSearchMessage("");setFoodResults([]);try{const result=await api("/api/food/barcode/"+encodeURIComponent(code));if(!result.product){setFoodSearchMessage("Nie znaleziono produktu o tym kodzie. Możesz wyszukać go po nazwie lub dodać ręcznie.");return;}chooseFoodProduct(result.product);setBarcode(code);}catch(e){setFoodSearchMessage(e.message);}finally{setBarcodeSearching(false);}}
- function chooseFoodProduct(product){setSelectedFoodProduct(product);setFoodName(product.name);setFoodGrams("100");setFoodKcal(String(product.kcal));setFoodProtein(String(Number(product.protein||0).toFixed(1)));setFoodCarbs(String(Number(product.carbs||0).toFixed(1)));setFoodFat(String(Number(product.fat||0).toFixed(1)));setFoodSearchMessage("Wczytano wartości na 100 g. Możesz zmienić gramaturę.");setFoodResults([]);}
- function updateFoodGrams(value){setFoodGrams(value);if(selectedFoodProduct){const factor=Math.max(0,Number(value)||0)/100;setFoodKcal(String(Math.round(selectedFoodProduct.kcal*factor)));setFoodProtein(String((selectedFoodProduct.protein*factor).toFixed(1)));setFoodCarbs(String((selectedFoodProduct.carbs*factor).toFixed(1)));setFoodFat(String((selectedFoodProduct.fat*factor).toFixed(1)));}}
- async function api(url,opts={}) { const r=await fetch(url,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Wystąpił błąd");return d; }
- async function refresh(){const me=await api("/api/me");if(!me.authenticated){setUser(null);setLoading(false);throw new Error("Logowanie nie zostało utrzymane. Sprawdź cookies/sesję albo spróbuj ponownie.");}setUser(me);setWeight(me.username==="kieltyczka"?"":"104");setEntries(await api("/api/entries"));const saved=await api("/api/settings");setSettings({...defaultSettings,...saved.settings,meals:Array.isArray(saved.settings?.meals)?saved.settings.meals:defaultSettings.meals});const push=await api("/api/push/status");setPushEnabled(Boolean(push.enabled));setLoading(false);}
- async function saveSettings(){setSettingsMessage("");try{await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});setSettingsMessage("Ustawienia zapisane.");}catch(e){setSettingsMessage(e.message);}}
- function updateMeal(id,patch){setSettings(current=>({...current,meals:current.meals.map(m=>m.id===id?{...m,...patch}:m)}));}
- async function enablePushNotifications(){
-  setSettingsMessage("");
-  try{
-    if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))throw new Error("Ta przeglądarka nie obsługuje powiadomień web push.");
-    await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});
-    await api("/api/settings",{method:"PUT",body:JSON.stringify(settings)});
-    const config=await api("/api/push/public-key");
-    if(!config.publicKey)throw new Error("Powiadomienia wymagają jeszcze konfiguracji VAPID w Coolify. Instrukcja znajduje się w README projektu.");
-    const permission=await Notification.requestPermission();
-    if(permission!=="granted")throw new Error("Nie przyznano zgody na powiadomienia.");
-    const registration=await navigator.serviceWorker.ready;
-    const existing=await registration.pushManager.getSubscription();
-    const subscription=existing||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(config.publicKey)});
-    await api("/api/push/subscribe",{method:"POST",body:JSON.stringify(subscription)});
-    setPushEnabled(true);setSettingsMessage("Powiadomienia o posiłkach są aktywne.");
-  }catch(e){setSettingsMessage(e.message);}
- }
- async function disablePushNotifications(){
-  try{const registration=await navigator.serviceWorker.ready;const subscription=await registration.pushManager.getSubscription();if(subscription){await api("/api/push/subscribe",{method:"DELETE",body:JSON.stringify({endpoint:subscription.endpoint})});await subscription.unsubscribe();}setPushEnabled(false);setSettingsMessage("Powiadomienia zostały wyłączone.");}catch(e){setSettingsMessage(e.message);}
- }
- useEffect(()=>{refresh().catch(()=>setLoading(false));},[]);
- useEffect(()=>{if(!scannerOpen)return;let scanner;let active=true;(async()=>{try{scanner=new Html5Qrcode("food-barcode-reader");await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:150}},async decoded=>{if(!active)return;setScannerOpen(false);setBarcode(decoded);try{await lookupBarcode(decoded);}catch(e){setFoodSearchMessage(e.message);}},()=>{});}catch(e){setFoodSearchMessage("Nie udało się uruchomić aparatu. Zezwól na dostęp do kamery albo wpisz kod ręcznie.");setScannerOpen(false);}})();return()=>{active=false;if(scanner?.isScanning)scanner.stop().catch(()=>{});};},[scannerOpen]);
- useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),30000);return()=>clearInterval(timer);},[]);
+  const toast = useToast();
+  const [booting, setBooting] = useState(true);
+  const [user, setUser] = useState(null);
+  const [rawSettings, setRawSettings] = useState({});
+  const [entries, setEntries] = useState([]);
+  const [serverStats, setServerStats] = useState(null);
+  const [page, setPage] = useState(pageFromUrl);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const mainRef = useRef(null);
 
- async function signIn(e){e.preventDefault();setError("");try{await api("/api/login",{method:"POST",body:JSON.stringify({username:login,password})});setPassword("");await refresh()}catch(e){setError(e.message)}}
- async function logout(){await api("/api/logout",{method:"POST"});setUser(null);setEntries([])}
- async function add(kind,data,date=today()){try{await api("/api/entries",{method:"POST",body:JSON.stringify({date,kind,data})});setEntries(await api("/api/entries"));setError("")}catch(e){setError(e.message)}}
-  function activeWorkoutItems(){
-    const saved=(workoutsByDate?.[workoutDate]||[]).filter(entry=>entry.data?.plan===selected).flatMap(entry=>(entry.data?.exercises||[]).filter(ex=>ex.custom).map(ex=>[ex.name,Math.max(1,(ex.sets||[]).length)+" × "+(ex.sets?.[0]?.reps||10),ex.muscle||"Inne"]));
-    const extras=[...(customExercises[selected]||[]),...saved];
-    const unique=extras.filter((item,index)=>extras.findIndex(other=>other[0]===item[0])===index);
-    return [...plans[selected].items,...unique];
-  }
-  function getWorkoutSetCount(exerciseIndex){const item=activeWorkoutItems()[exerciseIndex],base=Math.max(1,Number(String(item[1]).match(/^(\d+)/)?.[1]||3));return Math.max(1,Math.min(10,Number(workoutSetCounts[workoutDate+"-"+selected+"-"+exerciseIndex]||base)));}
-  function changeExerciseSetCount(exerciseIndex,next){const count=Math.max(1,Math.min(10,Number(next)||1)),key=workoutDate+"-"+selected+"-"+exerciseIndex;setWorkoutSetCounts(current=>({...current,[key]:count}));setWorkoutSets(current=>{const setKey=selected+"-"+exerciseIndex,item=activeWorkoutItems()[exerciseIndex],reps=String(item[1]).match(/×\s*(\d+)/)?.[1]||"10",existing=current[setKey]||[];return {...current,[setKey]:Array.from({length:count},(_,i)=>existing[i]||{kg:"",reps,done:false})};});}
-  function getWorkoutSet(exerciseIndex,setIndex){
-    const item=activeWorkoutItems()[exerciseIndex],count=getWorkoutSetCount(exerciseIndex);
-    const reps=String(item[1]).match(/×\s*(\d+)/)?.[1]||"10";
-    return workoutSets[selected+"-"+exerciseIndex]?.[setIndex]||{kg:"",reps,done:false};
-  }
-  function updateWorkoutSet(exerciseIndex,setIndex,field,value){
-    const key=selected+"-"+exerciseIndex,item=activeWorkoutItems()[exerciseIndex],count=getWorkoutSetCount(exerciseIndex);
-    setWorkoutSets(current=>{const existing=current[key]||Array.from({length:count},()=>({kg:"",reps:String(item[1]).match(/×\s*(\d+)/)?.[1]||"10",done:false}));return {...current,[key]:existing.map((set,i)=>i===setIndex?{...set,[field]:value}:set)};});
-  }
-  function addCustomExercise(){const name=newExerciseName.trim();if(!name)return;setCustomExercises(current=>({...current,[selected]:[...(current[selected]||[]),[name,Math.max(1,Math.min(10,Number(newExerciseSets)||3))+" × "+Math.max(1,Math.min(100,Number(newExerciseReps)||10)),newExerciseMuscle||"Inne"]]}));setNewExerciseName("");}
-  function loadWorkoutEntry(entry){
-    if(!entry)return;const day=entry.entry_date?.slice(0,10);if(day)setWorkoutDate(day);
-    setEditingWorkoutId(entry.id);const plan=entry.data?.plan&&plans[entry.data.plan]?entry.data.plan:selected;setSelected(plan);
-    const loaded={},counts={};(entry.data?.exercises||[]).forEach((ex,i)=>{loaded[plan+"-"+i]=(ex.sets||[]).map(set=>({kg:String(set.kg??""),reps:String(set.reps??""),done:Boolean(set.done)}));counts[day+"-"+plan+"-"+i]=Math.max(1,(ex.sets||[]).length||1);});
-    setWorkoutSets(loaded);setWorkoutSetCounts(current=>({...current,...counts}));
-  }
-  function changeWorkoutDate(day){
-    setWorkoutDate(day);const existing=byKind("workout").find(e=>e.entry_date?.slice(0,10)===day);
-    if(existing)loadWorkoutEntry(existing);else{setEditingWorkoutId(null);setWorkoutSets({});}
-  }
-  async function saveWorkout(){
-    const items=activeWorkoutItems();const exercises=items.map((item,i)=>{
-      const count=getWorkoutSetCount(i),reps=String(item[1]).match(/×\s*(\d+)/)?.[1]||"10";
-      const sets=workoutSets[selected+"-"+i]||Array.from({length:count},()=>({kg:"",reps,done:false}));
-      return {name:item[0],muscle:item[2],custom:i>=plans[selected].items.length,sets:sets.slice(0,count).map(set=>({kg:Number(set.kg)||0,reps:Number(set.reps)||0,done:Boolean(set.done)}))};
+  const settings = useMemo(() => mergeSettings(rawSettings, user?.username), [rawSettings, user]);
+  const tz = settings.timezone;
+  const [today, setToday] = useState(() => todayIn(tz));
+  useEffect(() => {
+    setToday(todayIn(tz));
+    const id = setInterval(() => setToday(todayIn(tz)), 60000);
+    return () => clearInterval(id);
+  }, [tz]);
+
+  const stats = serverStats || statsFromEntries(entries);
+
+  const refreshStats = useCallback(() => { api("/api/stats").then(setServerStats).catch(() => {}); }, []);
+
+  const loadAll = useCallback(async () => {
+    const me = await api("/api/me");
+    if (!me.authenticated) { setUser(null); return; }
+    if (navigator.onLine) await flushQueue().catch(() => 0);
+    const [recent, workouts, weights, saved, st] = await Promise.all([
+      api("/api/entries"),
+      api("/api/entries?kind=workout"),
+      api("/api/entries?kind=weight"),
+      api("/api/settings"),
+      api("/api/stats").catch(() => null)
+    ]);
+    const byId = new Map();
+    for (const e of [...recent, ...workouts, ...weights]) byId.set(e.id, e);
+    setEntries(sortEntries([...queuedAsEntries(), ...byId.values()]));
+    setRawSettings(saved.settings || {});
+    setServerStats(st);
+    setUser({ username: me.username });
+  }, []);
+
+  useEffect(() => {
+    loadAll().catch(err => { if (!(err instanceof ApiError && err.status === 401)) toast(err instanceof OfflineError ? OFFLINE_MSG : err.message, { type: err instanceof OfflineError ? "offline" : "error" }); })
+      .finally(() => setBooting(false));
+  }, [loadAll, toast]);
+
+  // Session expired → back to login with a message.
+  useEffect(() => {
+    onUnauthorized(() => {
+      setUser(current => {
+        if (current) toast("Sesja wygasła — zaloguj się ponownie.", { type: "error" });
+        return null;
+      });
     });
-    const data={plan:selected,name:plans[selected].name,exercises,completed:exercises.filter(ex=>ex.sets.some(set=>set.done)).map(ex=>ex.name),total:exercises.length};
-    if(editingWorkoutId){await api("/api/entries/"+editingWorkoutId,{method:"PUT",body:JSON.stringify({date:workoutDate,data})});setEntries(await api("/api/entries"));setError("");}
-    else await add("workout",data,workoutDate);
-    setWorkoutSets({});
-  }
- async function del(id){await api("/api/entries/"+id,{method:"DELETE"});setEntries(await api("/api/entries"))}
- const byKind=k=>entries.filter(e=>e.kind===k),latestWeight=byKind("weight")[0]?.data?.kg??(user?.username==="skryskry"?"104":"—");
- const todayFood=byKind("food").filter(e=>e.entry_date?.slice(0,10)===today());
- const totals=todayFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0),c:a.c+Number(e.data.carbs||0),f:a.f+Number(e.data.fat||0)}),{kcal:0,p:0,c:0,f:0});
- const waterToday=byKind("water").filter(e=>e.entry_date?.slice(0,10)===today()).reduce((s,e)=>s+Number(e.data.ml||0),0);
- const foodDays=new Set(byKind("food").map(e=>e.entry_date?.slice(0,10)).filter(Boolean)).size;
- const workoutCount=byKind("workout").length;
- const achievements=[
-  {id:"first-food",title:"Pierwszy wpis",description:"Zapisz pierwszy posiłek w dzienniku.",icon:Utensils,xp:20,unlocked:byKind("food").length>=1},
-  {id:"first-workout",title:"Pierwszy trening",description:"Zapisz swój pierwszy trening.",icon:Dumbbell,xp:30,unlocked:workoutCount>=1},
-  {id:"five-workouts",title:"Budujemy nawyk",description:"Ukończ pięć treningów.",icon:Flame,xp:60,unlocked:workoutCount>=5},
-  {id:"seven-food-days",title:"Świadome wybory",description:"Zapisuj jedzenie przez siedem różnych dni.",icon:Sprout,xp:50,unlocked:foodDays>=7},
-  {id:"ten-workouts",title:"Coraz silniejszy",description:"Zapisz dziesięć treningów.",icon:Trophy,xp:100,unlocked:workoutCount>=10}
- ];
- const earnedXP=achievements.filter(a=>a.unlocked).reduce((sum,a)=>sum+a.xp,0);
- const nextMeal=settings.meals.filter(m=>m.enabled!==false).map(m=>{const [h,min]=m.time.split(":").map(Number);const at=new Date(clock);at.setHours(h,min,0,0);if(at.getTime()<=clock)at.setDate(at.getDate()+1);return {...m,at};}).sort((a,b)=>a.at-b.at)[0];
- const countdown=nextMeal?Math.max(0,nextMeal.at.getTime()-clock):0;
- const countdownLabel=String(Math.floor(countdown/3600000)).padStart(2,"0")+":"+String(Math.floor((countdown%3600000)/60000)).padStart(2,"0");
- const weekStart=new Date();weekStart.setDate(weekStart.getDate()-6);weekStart.setHours(0,0,0,0);
- const weekStartKey=[weekStart.getFullYear(),String(weekStart.getMonth()+1).padStart(2,"0"),String(weekStart.getDate()).padStart(2,"0")].join("-");
- const weekEntries=entries.filter(e=>e.entry_date?.slice(0,10)>=weekStartKey&&e.entry_date?.slice(0,10)<=today());
- const weekFood=weekEntries.filter(e=>e.kind==="food");
- const weekTotals=weekFood.reduce((a,e)=>({kcal:a.kcal+Number(e.data.kcal||0),p:a.p+Number(e.data.protein||0)}),{kcal:0,p:0});
- const weekWater=weekEntries.filter(e=>e.kind==="water").reduce((s,e)=>s+Number(e.data.ml||0),0);
- const weekWorkouts=weekEntries.filter(e=>e.kind==="workout").length;
- const weekWeights=weekEntries.filter(e=>e.kind==="weight").sort((a,b)=>new Date(a.entry_date)-new Date(b.entry_date));
- const workoutEntries=byKind("workout");
- const workoutsByDate=workoutEntries.reduce((acc,e)=>{const day=e.entry_date?.slice(0,10);if(day)(acc[day]??=[]).push(e);return acc;},{});
- const monthDate=new Date(workoutMonth+"-01T12:00:00");
- const monthOffset=(monthDate.getDay()+6)%7;
- const daysInMonth=new Date(monthDate.getFullYear(),monthDate.getMonth()+1,0).getDate();
- const calendarCells=[...Array(monthOffset).fill(null),...Array.from({length:daysInMonth},(_,i)=>{const d=i+1;return workoutMonth+"-"+String(d).padStart(2,"0");})];
- while(calendarCells.length%7)calendarCells.push(null);
- const monthLabel=monthDate.toLocaleDateString("pl-PL",{month:"long",year:"numeric"});
- const weeklyReport="SKR FITNESS — RAPORT 7 DNI\\nOkres: "+weekStart.toLocaleDateString("pl-PL")+" – "+new Date().toLocaleDateString("pl-PL")+"\\nProdukty zapisane: "+weekFood.length+"\\nŚrednie kalorie na dzień z wpisami: "+(weekFood.length?Math.round(weekTotals.kcal/Math.max(1,new Set(weekFood.map(e=>e.entry_date.slice(0,10))).size)):0)+" kcal\\nBiałko łącznie: "+Math.round(weekTotals.p)+" g\\nWoda łącznie: "+(weekWater/1000).toFixed(1)+" l\\nTreningi zapisane: "+weekWorkouts+"\\nPomiary: "+weekWeights.map(e=>e.data.kg+" kg ("+e.entry_date.slice(0,10)+")").join(", ");
+  }, [toast]);
 
- if(loading)return <div className="loading">SKR<span>FITNESS</span></div>;
- if(!user)return <main className="login-shell"><div className="login-card"><div className="brand-mark"><Activity/></div><p className="eyebrow">YOUR PERSONAL TRANSFORMATION</p><h1>SkrySkry <span>Fitness</span></h1><p className="muted">Zaloguj się, aby przejść do swojego panelu.</p><form onSubmit={signIn}><label>Login<input value={login} onChange={e=>setLogin(e.target.value)} autoComplete="username"/></label><label>Hasło<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/></label><button className="primary full">Zaloguj się</button></form>{error&&<p className="error">{error}</p>}<p className="tiny">SKR FITNESS · SLEEPER BUILD JOURNEY</p></div></main>;
- return <div className={`app ${user.username==="kieltyczka"?"theme-pink":"theme-blue"}`}><aside className="sidebar"><div className="brand"><Activity/><b>SKR FITNESS</b></div><nav>{nav.map(([id,label,Icon])=><button key={id} className={page===id?"active":""} onClick={()=>setPage(id)}><Icon size={18}/>{label}</button>)}</nav><button className="logout" onClick={logout}><LogOut size={18}/> Wyloguj</button></aside><main className="main"><header className="topbar"><div><p className="eyebrow">TWÓJ PLAN • {today()}</p><h2>{nav.find(n=>n[0]===page)?.[1]||"Przegląd"}</h2></div><span className="pill">CEL: 88 KG</span></header>
- {error&&<p className="error">{error}</p>}
- {page==="dashboard"&&<><section className="welcome"><div><p className="eyebrow green">DOBRZE CIĘ WIDZIEĆ</p><h1>Budujemy formę. <span>Dzień po dniu.</span></h1><p className="muted">Regularność wygrywa z perfekcją. Zapisuj postępy i trzymaj swój rytm.</p></div><div className="hero-stat"><Weight/><b>{latestWeight} kg</b><small>ostatni pomiar</small></div></section><section className="stats-grid"><article className="stat-card"><span>KALORIE</span><b>{Math.round(totals.kcal)} <small>/ 2350 kcal</small></b></article><article className="stat-card"><span>BIAŁKO</span><b>{Math.round(totals.p)} <small>/ 170 g</small></b></article><article className="stat-card"><span>WĘGLOWODANY</span><b>{Math.round(totals.c)} <small>/ 250 g</small></b></article><article className="stat-card"><span>TŁUSZCZE</span><b>{Math.round(totals.f)} <small>/ 75 g</small></b></article></section><section className="panel"><h3>Dzisiejsze nawodnienie</h3><p className="big-number">{(waterToday/1000).toFixed(2)} l <small>/ 2.5 l</small></p><button className="primary" onClick={()=>add("water",{ml:250})}>+ Dodaj 250 ml</button></section><section className="panel achievement-preview">
- <div className="section-heading"><div><p className="eyebrow green">TWÓJ ROZWÓJ</p><h3>Drzewko osiągnięć</h3></div><button className="secondary" onClick={()=>setPage("journey")}>Otwórz drzewko <GitBranch size={15}/></button></div>
- <div className="xp-summary"><div><span>ZDOBYTE XP</span><b>{earnedXP} XP</b></div><div><span>ODBLOCKOWANE</span><b>{achievements.filter(a=>a.unlocked).length}/{achievements.length}</b></div></div>
- <div className="achievement-mini-list">{achievements.slice(0,3).map(a=><div className={a.unlocked?"achievement-mini unlocked":"achievement-mini"} key={a.id}><a.icon size={19}/><span>{a.title}</span><b>{a.unlocked?"✓":"+"+a.xp+" XP"}</b></div>)}</div>
- </section><section className="panel"><h3>Twój plan treningowy</h3><div className="tabs">{Object.keys(plans).map(k=><button className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k}</button>)}</div><h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p>{plans[selected].items.slice(0,4).map(x=><div className="entry-row"><b>{x[0]}</b><span>{x[1]}</span></div>)}</section></>}
- {page==="training"&&<><div className="page-intro"><p className="eyebrow green">PLANER TRENINGOWY</p><h1>Twój kalendarz</h1><p className="muted">Wybierz dzień, przypisz trening A/B/C lub domowy, a potem uzupełnij ciężar i powtórzenia.</p></div>
- <section className="panel workout-calendar-panel"><div className="calendar-heading"><button className="calendar-arrow" onClick={()=>{const d=new Date(workoutMonth+"-01T12:00:00");d.setMonth(d.getMonth()-1);setWorkoutMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}}>‹</button><h3>{monthLabel}</h3><button className="calendar-arrow" onClick={()=>{const d=new Date(workoutMonth+"-01T12:00:00");d.setMonth(d.getMonth()+1);setWorkoutMonth(d.toISOString().slice(0,7));}}>›</button></div>
- <div className="workout-calendar-grid calendar-weekdays">{["P","W","Ś","C","P","S","N"].map((d,i)=><span key={i}>{d}</span>)}</div>
- <div className="workout-calendar-grid">{calendarCells.map((day,i)=>day?<button key={day} className={"calendar-day"+(day===workoutDate?" selected":"")+(workoutsByDate[day]?" has-workout":"")+(day===today()?" today":"")} onClick={()=>changeWorkoutDate(day)}><b>{Number(day.slice(-2))}</b>{workoutsByDate[day]?.length>0&&<small>{workoutsByDate[day].map(e=>e.data?.plan||"✓").join(", ")}</small>}</button>:<span className="calendar-empty" key={"empty-"+i}/>)}</div>
- <div className="calendar-legend"><span><i className="legend-dot planned"/> Zapisany trening</span><span><i className="legend-dot selected-dot"/> Wybrany dzień</span></div></section>
- <section className="panel"><div className="section-heading"><div><p className="eyebrow green">WYBRANY DZIEŃ</p><h3>{new Date(workoutDate+"T12:00:00").toLocaleDateString("pl-PL",{weekday:"long",day:"numeric",month:"long"})}</h3></div><input className="calendar-date-input" type="date" value={workoutDate} onChange={e=>{setWorkoutDate(e.target.value);setWorkoutMonth(e.target.value.slice(0,7));}}/></div>
- <p className="muted">Jaki trening wykonujesz?</p><div className="tabs">{Object.keys(plans).map(k=><button key={k} className={selected===k?"selected":""} onClick={()=>setSelected(k)}>{k==="HOME"?"DOM":k}</button>)}</div>
- <h3>{plans[selected].name}</h3><p className="muted">{plans[selected].focus}</p>
-  {activeWorkoutItems().map((x, i) => {
-    const count = getWorkoutSetCount(i);
+  // Offline queue: sync when the connection comes back.
+  useEffect(() => {
+    const onOnline = async () => {
+      const sent = await flushQueue().catch(() => 0);
+      if (sent > 0) {
+        toast(`Połączenie przywrócone — zsynchronizowano ${sent} ${sent === 1 ? "wpis" : sent < 5 ? "wpisy" : "wpisów"}`);
+        loadAll().catch(() => {});
+      }
+    };
+    const onOffline = () => toast(OFFLINE_MSG, { type: "offline" });
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+  }, [toast, loadAll]);
+
+  // History API navigation (?page= is kept so push notifications can deep-link, e.g. /?page=food).
+  useEffect(() => {
+    const onPop = () => { setPage(pageFromUrl()); setMoreOpen(false); };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = useCallback(next => {
+    if (!PAGES[next]) return;
+    setMoreOpen(false);
+    setPage(cur => {
+      if (cur !== next) window.history.pushState({ page: next }, "", next === "dashboard" ? "/" : `/?page=${next}`);
+      return next;
+    });
+    mainRef.current?.scrollTo({ top: 0 });
+  }, []);
+
+  useEffect(() => { applyTheme(user ? settings.theme : "blue"); }, [user, settings.theme]);
+
+  const reportError = useCallback((err, opts = {}) => {
+    if (err instanceof OfflineError) toast(OFFLINE_MSG, { type: "offline" });
+    else if (err instanceof ApiError && err.status === 401) { /* handled by onUnauthorized */ }
+    else if (!opts.silent) toast(err?.message || "Wystąpił błąd.", { type: "error" });
+  }, [toast]);
+
+  const createEntry = useCallback(async (kind, data, date) => {
+    try {
+      const entry = await api("/api/entries", { method: "POST", body: JSON.stringify({ date, kind, data }) });
+      setEntries(list => sortEntries([entry, ...list]));
+      refreshStats();
+      return entry;
+    } catch (err) {
+      if (!(err instanceof OfflineError)) throw err;
+      const queued = { tempId: -Date.now() - Math.floor(Math.random() * 1000), kind, data, date: date || todayIn(tz), createdAt: new Date().toISOString() };
+      enqueueEntry(queued);
+      const entry = { id: queued.tempId, entry_date: queued.date, kind, data, created_at: queued.createdAt, pending: true };
+      setEntries(list => sortEntries([entry, ...list]));
+      toast(OFFLINE_MSG, { type: "offline" });
+      return entry;
+    }
+  }, [refreshStats, toast, tz]);
+
+  const updateEntry = useCallback(async (id, body) => {
+    const entry = await api("/api/entries/" + id, { method: "PUT", body: JSON.stringify(body) });
+    setEntries(list => sortEntries(list.map(e => (e.id === id ? entry : e))));
+    return entry;
+  }, []);
+
+  const deleteEntry = useCallback(async id => {
+    if (id < 0) writeQueue(readQueue().filter(q => q.tempId !== id));
+    else await api("/api/entries/" + id, { method: "DELETE" });
+    setEntries(list => list.filter(e => e.id !== id));
+    if (id > 0) refreshStats();
+  }, [refreshStats]);
+
+  const saveSettings = useCallback(async next => {
+    const clean = { ...next };
+    for (const k of ["targetWeight", "startWeight", "kcalTarget", "proteinTarget", "carbsTarget", "fatTarget", "waterTargetMl"]) {
+      clean[k] = clean[k] === "" || clean[k] == null ? null : Number(clean[k]);
+    }
+    const r = await api("/api/settings", { method: "PUT", body: JSON.stringify(clean) });
+    setRawSettings(r.settings || clean);
+    return r.settings;
+  }, []);
+
+  const logout = useCallback(async () => {
+    const sub = await currentSubscription();
+    try { await api("/api/logout", { method: "POST", body: JSON.stringify(sub ? { endpoint: sub.endpoint } : {}) }); } catch { /* ignore */ }
+    try { await sub?.unsubscribe(); } catch { /* ignore */ }
+    setUser(null); setEntries([]); setRawSettings({}); setServerStats(null);
+    toast("Wylogowano", { type: "info" });
+  }, [toast]);
+
+  const ctx = { user, settings, saveSettings, entries, stats, today, tz, createEntry, updateEntry, deleteEntry, navigate, reportError, logout };
+
+  if (booting) return <div className="boot"><div className="brand-mark"><Activity size={28} /></div><b>SKR<span className="accent-text">FITNESS</span></b><Spinner size={22} /></div>;
+  if (!user) return <Login onLoggedIn={() => loadAll().catch(reportError)} />;
+  if (needsOnboarding(rawSettings)) {
     return (
-      <article className="exercise-log-card" key={selected + "-" + i}>
-        <div>
-          <b>{x[0]}</b>
-          <p>{x[2]} · Plan bazowy: {x[1]}</p><div className="exercise-set-controls"><span>Liczba serii</span><button type="button" aria-label={"Usuń serię z "+x[0]} onClick={()=>changeExerciseSetCount(i,getWorkoutSetCount(i)-1)} disabled={getWorkoutSetCount(i)<=1}>−</button><b>{getWorkoutSetCount(i)}</b><button type="button" aria-label={"Dodaj serię do "+x[0]} onClick={()=>changeExerciseSetCount(i,getWorkoutSetCount(i)+1)} disabled={getWorkoutSetCount(i)>=10}>+</button></div>
-          <a className="exercise-link" href={"https://www.youtube.com/results?search_query=" + encodeURIComponent(x[0] + " exercise tutorial proper form")} target="_blank" rel="noreferrer">Instruktaż</a>
-        </div>
-        <div className="set-log-grid">
-          <div className="set-log-label">
-            <span>SERIA</span><span>CIĘŻAR (KG)</span><span>POWTÓRZENIA</span><span>WYKONANO</span>
+      <AppContext.Provider value={ctx}>
+        <Onboarding user={user} initial={mergeSettings({}, user.username)}
+          onFinish={async s => { try { await saveSettings(s); toast("Gotowe! Powodzenia 💪"); } catch (err) { reportError(err); } }} />
+      </AppContext.Provider>
+    );
+  }
+
+  const { Component } = PAGES[page];
+  const topDate = new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", timeZone: tz });
+  const moreActive = MORE_NAV.includes(page);
+
+  return (
+    <AppContext.Provider value={ctx}>
+      <div className="app">
+        <header className="topbar">
+          <div>
+            <p className="topbar-date">{topDate}</p>
+            <h2>{PAGES[page].label}</h2>
           </div>
-          {Array.from({ length: count }, (_, setIndex) => {
-            const set = getWorkoutSet(i, setIndex);
+          {settings.targetWeight ? <span className="pill">CEL: {fmtKg(settings.targetWeight)} KG</span> : null}
+        </header>
+        <main className="main" ref={mainRef}>
+          <div className="page-transition" key={page}><Component /></div>
+          <footer className="footer">SKR FITNESS · SLEEPER BUILD JOURNEY</footer>
+        </main>
+        <nav className="bottom-nav" aria-label="Nawigacja główna">
+          {MAIN_NAV.map(id => {
+            const { label, icon: Icon } = PAGES[id];
             return (
-              <div className="set-log-row" key={setIndex}>
-                <b>{setIndex + 1}</b>
-                <input aria-label={"Ciężar seria " + (setIndex + 1)} type="number" min="0" step="0.5" placeholder="0" value={set.kg} onChange={e => updateWorkoutSet(i, setIndex, "kg", e.target.value)} />
-                <div className="reps-stepper">
-                  <button type="button" aria-label="Odejmij powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String(Math.max(0, (Number(set.reps) || 0) - 1)))}>−</button>
-                  <input aria-label={"Powtórzenia seria " + (setIndex + 1)} type="number" min="0" step="1" value={set.reps} onChange={e => updateWorkoutSet(i, setIndex, "reps", e.target.value)} />
-                  <button type="button" aria-label="Dodaj powtórzenie" onClick={() => updateWorkoutSet(i, setIndex, "reps", String((Number(set.reps) || 0) + 1))}>+</button>
-                </div>
-                <button type="button" className={"set-done-toggle" + (set.done ? " done" : "")} aria-label={set.done ? "Oznacz serię jako niewykonaną" : "Oznacz serię jako wykonaną"} onClick={() => updateWorkoutSet(i, setIndex, "done", !set.done)}>{set.done ? "✓" : "○"}</button>
-              </div>
+              <button key={id} type="button" className={page === id ? "active" : ""} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}>
+                <Icon size={24} /><span>{label}</span>
+              </button>
             );
           })}
-        </div>
-      </article>
-    );
-  })}
- <div className="custom-exercise-form"><h3>Dodaj własne ćwiczenie</h3><div className="custom-exercise-fields"><input aria-label="Nazwa ćwiczenia" placeholder="Np. Wyciskanie hantli skos" value={newExerciseName} onChange={e=>setNewExerciseName(e.target.value)}/><input aria-label="Liczba serii" type="number" min="1" max="10" value={newExerciseSets} onChange={e=>setNewExerciseSets(e.target.value)} placeholder="Serie"/><input aria-label="Powtórzenia w serii" type="number" min="1" max="100" value={newExerciseReps} onChange={e=>setNewExerciseReps(e.target.value)} placeholder="Powtórzenia"/><select aria-label="Partia mięśniowa" value={newExerciseMuscle} onChange={e=>setNewExerciseMuscle(e.target.value)}>{["Klatka piersiowa","Plecy","Nogi","Barki","Biceps","Triceps","Brzuch","Pośladki","Inne"].map(m=><option key={m}>{m}</option>)}</select><button type="button" className="secondary" onClick={addCustomExercise} disabled={!newExerciseName.trim()}>+ Dodaj ćwiczenie</button></div></div><button className="primary" onClick={saveWorkout}>{editingWorkoutId?"Zapisz zmiany treningu":"Zapisz trening na ten dzień"}</button></section>
- <section className="panel"><div className="section-heading"><h3>Treningi w wybranym dniu</h3><span className="muted">{(workoutsByDate[workoutDate]||[]).length} zapisane</span></div>{(workoutsByDate[workoutDate]||[]).map(entry=><article className="workout-history-item" key={entry.id}><div className="section-heading"><b>{entry.data?.name||"Trening"}</b><small>{entry.entry_date?.slice(0,10)}</small></div>{(entry.data?.exercises||[]).map(ex=><div className="history-exercise" key={ex.name}><b>{ex.name}</b><span>{(ex.sets||[]).map((set,i)=>"S"+(i+1)+": "+(set.kg||0)+" kg × "+(set.reps||0)+" powt.").join(" · ")}</span></div>)}{!entry.data?.exercises?.length&&<p className="muted">Zapisano trening bez szczegółowych wyników.</p>}<div className="row" style={{gap:8,flexWrap:"wrap"}}><button type="button" className="secondary" onClick={()=>loadWorkoutEntry(entry)}>Edytuj ten trening</button><button type="button" className="secondary" onClick={()=>{if(window.confirm("Usunąć ten trening? Tej operacji nie można cofnąć."))del(entry.id);}}>Usuń trening</button></div></article>)}{!(workoutsByDate[workoutDate]||[]).length&&<p className="muted">Brak zapisanego treningu. Wybierz plan powyżej i zapisz wyniki.</p>}</section>
- <section className="panel"><h3>Ostatnie treningi</h3><p className="muted">Podgląd nie zmienia aktualnie wpisywanych wyników.</p>{workoutEntries.slice(0,10).map(entry=>{const expanded=expandedWorkoutPreviewId===entry.id;const previewId="workout-preview-"+entry.id;return <article className="workout-history-item" key={entry.id}><div className="section-heading"><div><b>{entry.data?.name||"Trening"}</b><small>{entry.entry_date?.slice(0,10)}</small></div><button type="button" className="secondary preview-toggle" aria-expanded={expanded} aria-controls={previewId} onClick={()=>setExpandedWorkoutPreviewId(expanded?null:entry.id)}>{expanded?"Ukryj podgląd":"Podejrzyj trening"}</button></div><div id={previewId} hidden={!expanded} className="workout-preview-panel">{(entry.data?.exercises||[]).filter(ex=>(ex.sets||[]).some(set=>set.done)).map((ex,i)=><div className="history-exercise" key={ex.name+"-"+i}><b>{ex.name}</b><span>{(ex.sets||[]).map((set,j)=>set.done?"S"+(j+1)+": "+(set.kg||0)+" kg × "+(set.reps||0)+" powt.":null).filter(Boolean).join(" · ")}</span></div>)}{!(entry.data?.exercises||[]).some(ex=>(ex.sets||[]).some(set=>set.done))&&<p className="muted">Brak oznaczonych jako wykonane serii w tym treningu.</p>}</div></article>;})}</section></>}
- {page==="journey"&&<><div className="page-intro"><p className="eyebrow green">PROGRES, NIE PERFEKCJA</p><h1>Twoje drzewko rozwoju.</h1><p className="muted">Każdy mały krok buduje kolejną umiejętność. Nie tracisz postępu za dzień odpoczynku.</p></div>
- <section className="panel journey-hero"><div className="journey-level"><div className="journey-emblem"><Trophy size={27}/></div><div><span>TWÓJ POZIOM</span><h2>{Math.floor(earnedXP/100)+1} · Budowniczy nawyków</h2><small>{earnedXP} XP zdobyte łącznie</small></div></div><div className="xp-track"><span style={{width:(earnedXP%100)+"%"}}/></div><small className="muted">{100-(earnedXP%100)} XP do kolejnego poziomu</small></section>
- <div className="achievement-tree">{achievements.map((a,i)=><React.Fragment key={a.id}><article className={a.unlocked?"tree-node unlocked":"tree-node locked"}><div className="tree-icon"><a.icon size={23}/></div><div className="tree-copy"><span className="tree-status">{a.unlocked?"ODBLOCKOWANO":"DO ODKRYCIA"} · {a.xp} XP</span><h3>{a.title}</h3><p>{a.description}</p></div><div className="tree-check">{a.unlocked?<CheckCircle2/>:<Target/>}</div></article>{i<achievements.length-1&&<div className="tree-connector"/>}</React.Fragment>)}</div>
- <section className="panel"><h3>Twoje statystyki</h3><div className="stats-grid journey-stats"><article className="stat-card"><span>TRENINGI</span><b>{workoutCount}</b></article><article className="stat-card"><span>DNI Z WPISAMI</span><b>{foodDays}</b></article><article className="stat-card"><span>ZDOBYTE XP</span><b>{earnedXP}</b></article><article className="stat-card"><span>CEL WAGOWY</span><b>88 kg</b></article></div></section></>}
- {page==="food"&&<><div className="page-intro food-intro"><p className="eyebrow green">DZIENNIK ŻYWIENIOWY</p><h1>Co dziś jesz?</h1><p className="muted">Dodawaj posiłki bez zbędnego klikania i miej makro pod kontrolą.</p></div>
- <section className="panel meal-schedule-panel"><div className="section-heading"><div><p className="eyebrow green">TWÓJ RYTM DNIA</p><h3>Plan posiłków</h3></div><span className="meal-reminder-pill"><Bell size={14}/> co około 3 h</span></div>
- <div className="next-meal-card"><div className="next-meal-icon"><Clock3 size={22}/></div><div className="next-meal-copy"><span>{nextMeal&&nextMeal.at.getDate()!==new Date(clock).getDate()?"NASTĘPNY POSIŁEK":"KOLEJNY POSIŁEK"}</span><b>{nextMeal?nextMeal.label:"Ustaw godziny posiłków"}</b><small>{nextMeal?nextMeal.time+" · za "+countdownLabel:"Włącz posiłki w ustawieniach"}</small></div><button className="secondary" onClick={()=>setPage("settings")}>Edytuj</button></div>
- <div className="meal-timeline">{settings.meals.map(m=>{const logged=todayFood.filter(e=>e.data.meal===m.label).length;return <div className={logged?"meal-time-item logged":"meal-time-item"} key={m.id}><span className="meal-time-dot"/><div><b>{m.label}</b><small>{m.time}</small></div><span className="meal-time-status">{logged>0?<><CheckCircle2 size={14}/> Zapisano</>:"Plan"}</span></div>})}</div>
- </section>
- <section className="food-summary">
-  <div className="food-calorie-head"><div><span className="food-kicker">SPOŻYCIE DZISIAJ</span><strong>{Math.round(totals.kcal)} <small>/ 2350 kcal</small></strong></div><div className="food-remaining">{Math.max(0,2350-Math.round(totals.kcal))}<small>kcal pozostało</small></div></div>
-  <div className="food-calorie-track"><span style={{width:Math.min(100,totals.kcal/2350*100)+"%"}}/></div>
-  <div className="food-macro-grid">
-   {[["Białko",totals.p,170,"g"],["Węglowodany",totals.c,250,"g"],["Tłuszcze",totals.f,75,"g"]].map(([label,value,target,unit])=><div className="food-macro" key={label}><div><span>{label}</span><b>{Math.round(value)}<small> / {target}{unit}</small></b></div><div className="food-macro-track"><span style={{width:Math.min(100,value/target*100)+"%"}}/></div></div>)}
-  </div>
- </section>
- <section className="panel food-form-panel"><div className="food-panel-heading"><div><p className="eyebrow green">NOWY WPIS</p><h3>Dodaj do dziennika</h3></div><span className="food-step">01 / 02</span></div>
-  <div className="food-search-box"><div className="food-search-title"><div><b><Search size={16}/> Znajdź produkt w bazie</b><small>Wyszukaj po nazwie, marce lub produkcie</small></div><span>OPEN FOOD FACTS</span></div><form className="food-search-form" onSubmit={searchFood}><input value={foodSearch} onChange={e=>setFoodSearch(e.target.value)} placeholder="Np. skyr naturalny, płatki owsiane…" aria-label="Szukaj produktu"/><button className="primary" type="submit" disabled={foodSearching}>{foodSearching?<LoaderCircle size={16} className="spin"/>:<Search size={16}/>} Szukaj</button></form><div className="barcode-tools"><form className="barcode-form" onSubmit={e=>{e.preventDefault();lookupBarcode();}}><input inputMode="numeric" value={barcode} onChange={e=>setBarcode(e.target.value.replace(/\D/g,"").slice(0,14))} placeholder="Kod kreskowy EAN (np. 590…)" aria-label="Kod kreskowy"/><button className="secondary" type="submit" disabled={barcodeSearching}>{barcodeSearching?<LoaderCircle size={15} className="spin"/>:<Search size={15}/>} Szukaj EAN</button></form><button type="button" className="secondary barcode-camera" onClick={()=>setScannerOpen(v=>!v)}>{scannerOpen?<X size={16}/>:<Camera size={16}/>} {scannerOpen?"Zamknij skaner":"Skanuj aparatem"}</button></div>{scannerOpen&&<div className="barcode-scanner"><div id="food-barcode-reader"/><small>Ustaw kod kreskowy w ramce. Skaner korzysta z aparatu urządzenia.</small></div>}{foodSearchMessage&&<p className="food-search-message">{foodSearchMessage}</p>}{foodResults.length>0&&<div className="food-search-results">{foodResults.map((p,i)=><button type="button" className="food-search-result" key={p.barcode||p.name+i} onClick={()=>chooseFoodProduct(p)}>{p.image?<img src={p.image} alt="" loading="lazy"/>:<span className="food-result-placeholder"><Utensils size={17}/></span>}<span className="food-result-name"><b>{p.name}</b><small>{p.quantity||"Wartości na 100 g"} · B: {Number(p.protein).toFixed(1)} g · W: {Number(p.carbs).toFixed(1)} g · T: {Number(p.fat).toFixed(1)} g</small></span><strong>{p.kcal}<small> kcal</small></strong><span className="food-result-add">＋</span></button>)}</div>}</div>
- <form onSubmit={e=>{e.preventDefault();if(!foodName.trim()||foodKcal===""){setError("Wpisz nazwę produktu i liczbę kalorii.");return;}add("food",{name:foodName.trim(),grams:Number(foodGrams)||0,kcal:Number(foodKcal),protein:Number(foodProtein||0),carbs:Number(foodCarbs||0),fat:Number(foodFat||0),meal});setFoodName("");setFoodGrams("100");setFoodKcal("");setFoodProtein("");setFoodCarbs("");setFoodFat("");setSelectedFoodProduct(null);}}>
-   <label className="food-label">Do którego posiłku dodajesz?</label>
-   <div className="meal-picker">{["Śniadanie","II śniadanie","Obiad","Podwieczorek","Kolacja","Przekąska"].map((x,i)=><button type="button" key={x} className={meal===x?"meal-chip active":"meal-chip"} onClick={()=>setMeal(x)}>{["☀","◷","🍽","◌","☾","＋"][i]} <span>{x}</span></button>)}</div>
-   <div className="food-product-row"><label className="food-field food-product-field"><span>Nazwa produktu</span><input required value={foodName} onChange={e=>{setFoodName(e.target.value);setSelectedFoodProduct(null);setAiFoodMessage("");}} placeholder="Np. owsianka, skyr, banan…"/></label><label className="food-field food-amount-field"><span>Ilość <small>(g / ml)</small></span><input type="number" min="0" inputMode="decimal" value={foodGrams} onChange={e=>updateFoodGrams(e.target.value)}/></label></div><div className="ai-food-estimator"><button type="button" className="secondary" onClick={estimateFoodWithAI} disabled={aiFoodLoading||!foodName.trim()}>{aiFoodLoading?<LoaderCircle size={16} className="spin"/>:<Activity size={16}/>} {aiFoodLoading?"Szacuję wartości…":"Oszacuj kalorie i makro przez AI"}</button>{aiFoodMessage&&<p className="ai-food-message">{aiFoodMessage}</p>}<small>AI jest funkcją opcjonalną i wymaga osobnego klucza OpenAI API z aktywnym rozliczaniem. Nie jest potrzebne do wyszukiwania produktów ani skanowania EAN. Możesz też wpisać wartości ręcznie.</small></div>
-   <div className="food-quantity-chips"><span>Szybka ilość:</span>{["50","100","150","200","250"].map(v=><button type="button" key={v} className={foodGrams===v?"active":""} onClick={()=>updateFoodGrams(v)}>{v} g</button>)}</div>
-   <div className="food-macro-heading"><div><b>Wartości odżywcze</b><small>Podaj wartości dla wybranej porcji</small></div><span>kcal + B / W / T</span></div>
-   <div className="food-input-grid">
-    <label className="food-field food-kcal-field"><span>Kalorie <small>(kcal)</small></span><input required type="number" min="0" inputMode="decimal" value={foodKcal} onChange={e=>setFoodKcal(e.target.value)} placeholder="0"/></label>
-    <label className="food-field"><span>Białko <small>(g)</small></span><input type="number" min="0" step="0.1" inputMode="decimal" value={foodProtein} onChange={e=>setFoodProtein(e.target.value)} placeholder="0"/></label>
-    <label className="food-field"><span>Węglowodany <small>(g)</small></span><input type="number" min="0" step="0.1" inputMode="decimal" value={foodCarbs} onChange={e=>setFoodCarbs(e.target.value)} placeholder="0"/></label>
-    <label className="food-field"><span>Tłuszcze <small>(g)</small></span><input type="number" min="0" step="0.1" inputMode="decimal" value={foodFat} onChange={e=>setFoodFat(e.target.value)} placeholder="0"/></label>
-   </div>
-   <button className="primary food-submit" type="submit"><span>＋</span> Dodaj posiłek do dziennika</button>
-  </form>
- </section>
- <section className="panel food-log-panel"><div className="food-log-heading"><div><p className="eyebrow green">TWOJE WPISY</p><h3>Dzisiejsze posiłki</h3></div><span className="food-count">{todayFood.length} {todayFood.length===1?"produkt":todayFood.length>=2&&todayFood.length<=4?"produkty":"produktów"}</span></div>
-  {todayFood.length===0?<div className="food-empty"><span>🥗</span><b>Jeszcze nic tu nie ma</b><p>Dodaj pierwszy produkt, a podsumowanie dnia zaktualizuje się automatycznie.</p></div>:["Śniadanie","II śniadanie","Obiad","Podwieczorek","Kolacja","Przekąska"].filter(m=>todayFood.some(e=>e.data.meal===m)).map(m=><div className="food-meal-group" key={m}><div className="food-meal-title"><b>{m}</b><span>{Math.round(todayFood.filter(e=>e.data.meal===m).reduce((s,e)=>s+Number(e.data.kcal||0),0))} kcal</span></div>{todayFood.filter(e=>e.data.meal===m).map(e=><div className="food-log-item" key={e.id}><div className="food-log-icon"><Utensils size={16}/></div><div className="food-log-info"><b>{e.data.name}</b><small>{e.data.grams} g · B: {e.data.protein||0} g · W: {e.data.carbs||0} g · T: {e.data.fat||0} g</small></div><strong>{e.data.kcal} <small>kcal</small></strong><button className="food-delete" aria-label={"Usuń "+e.data.name} onClick={()=>del(e.id)}>×</button></div>)}</div>)}
- </section></>}
- {page==="progress"&&<><div className="page-intro"><p className="eyebrow green">TWOJA TRANSFORMACJA</p><h1>Liczy się postęp.</h1><p className="muted">Zapisuj pomiary i obserwuj trend.</p></div><section className="panel"><h3>Dodaj pomiar</h3><div className="form-grid"><label>Waga (kg)<input type="number" step="0.1" value={weight} onChange={e=>setWeight(e.target.value)}/></label><label>Obwód brzucha (cm)<input type="number" value={waist} onChange={e=>setWaist(e.target.value)}/></label></div><button className="primary" disabled={!weight||Number(weight)<=0} onClick={()=>add("weight",{kg:Number(weight),waist:Number(waist)||null})}>Zapisz pomiar</button></section><section className="panel"><h3>Historia wagi</h3><div className="weight-chart">{byKind("weight").slice(0,8).reverse().map((e,i,arr)=><div className="weight-bar" key={e.id}><b>{e.data.kg}</b><span style={{height:(Math.max(8,Math.min(100,Number(e.data.kg||0)/Math.max(1,...arr.map(x=>Number(x.data.kg||0)))*100)))+"%"}}></span><small>{e.entry_date?.slice(5,10)}</small></div>)}</div>{byKind("weight").map(e=><div className="entry-row"><span>{e.entry_date?.slice(0,10)}</span><div><b>{e.data.kg} kg</b>{e.data.waist&&<small className="muted"> · brzuch {e.data.waist} cm</small>}</div></div>)}</section></>}
- {page==="reports"&&<><div className="page-intro"><p className="eyebrow green">PODSUMOWANIE</p><h1>Raporty i analiza.</h1><p className="muted">Raport tygodniowy obejmuje ostatnie 7 dni zapisanych danych.</p></div><section className="panel"><h3>Raport dzienny</h3><pre className="report" id="daily-report">{"SKRYSKRY FITNESS — RAPORT\\nData: "+today()+"\\nWaga: "+latestWeight+" kg\\nKalorie: "+Math.round(totals.kcal)+" / 2350 kcal\\nBiałko: "+Math.round(totals.p)+" / 170 g\\nWoda: "+(waterToday/1000).toFixed(2)+" l"}</pre><button className="secondary" onClick={()=>navigator.clipboard.writeText(document.getElementById("daily-report").innerText)}>Kopiuj raport dzienny</button></section><section className="panel"><h3>Podsumowanie 7 dni</h3><pre className="report" id="weekly-report">{weeklyReport}</pre><button className="primary" onClick={()=>navigator.clipboard.writeText(weeklyReport)}>Kopiuj raport tygodniowy</button> <button className="secondary" onClick={async()=>{setAiLoading(true);setAiAnalysis("");try{const result=await api("/api/ai/coach",{method:"POST",body:JSON.stringify({report:weeklyReport})});setAiAnalysis(result.analysis);}catch(e){setAiAnalysis(e.message);}finally{setAiLoading(false);}}} disabled={aiLoading}>{aiLoading?"Analizuję…":"Analizuj tydzień przez AI"}</button>{aiAnalysis&&<div className="ai-result">{aiAnalysis}</div>}</section><section className="panel"><h3>Kopia danych</h3><p className="muted">Pobierz wszystkie zapisane wpisy, aby zachować własną kopię.</p><button className="secondary" onClick={()=>{window.location.href="/api/export";}}>Eksportuj kopię danych</button></section></>}
- {page==="settings"&&<><div className="page-intro"><p className="eyebrow green">KONTO I BEZPIECZEŃSTWO</p><h1>Ustawienia</h1></div><section className="panel"><h3>Twoje konto</h3><p className="muted">Zalogowano jako {user.username||"użytkownik"}.</p><button className="secondary" onClick={logout}>Wyloguj się</button></section><section className="panel"><h3>Zmiana hasła</h3><div className="form-grid"><label>Obecne hasło<input type="password" autoComplete="current-password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)}/></label><label>Nowe hasło (min. 12 znaków)<input type="password" autoComplete="new-password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label></div><button className="primary" onClick={async()=>{setPasswordMessage("");try{await api("/api/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})});setCurrentPassword("");setNewPassword("");setPasswordMessage("Hasło zostało zmienione.");}catch(e){setPasswordMessage(e.message);}}}>Zmień hasło</button>{passwordMessage&&<p className="muted">{passwordMessage}</p>}</section><section className="panel reminder-settings"><div className="section-heading"><div><p className="eyebrow green">HARMONOGRAM</p><h3>Przypomnienia o posiłkach</h3></div><Bell size={21}/></div><p className="muted">Ustaw swoje godziny. Przypomnienie ma pomagać, a nie zmuszać do jedzenia o konkretnej porze.</p>
- <label className="reminder-toggle"><input type="checkbox" checked={settings.remindersEnabled!==false} onChange={e=>setSettings(v=>({...v,remindersEnabled:e.target.checked}))}/> <span>Włącz przypomnienia z harmonogramu</span></label>
- <div className="meal-settings-list">{settings.meals.map(m=><div className="meal-setting-row" key={m.id}><label><input type="checkbox" checked={m.enabled!==false} onChange={e=>updateMeal(m.id,{enabled:e.target.checked})}/><span>{m.label}</span></label><input aria-label={"Godzina: "+m.label} type="time" value={m.time} onChange={e=>updateMeal(m.id,{time:e.target.value})}/></div>)}</div>
- <button className="primary" onClick={saveSettings}>Zapisz harmonogram</button>
- </section>
- <section className="panel push-settings"><div className="section-heading"><div><p className="eyebrow green">IPHONE / WEB PUSH</p><h3>Powiadomienia na telefonie</h3></div><Bell size={21}/></div>
- <p className="muted">Po włączeniu dostaniesz przypomnienia o zaplanowanych posiłkach również wtedy, gdy aplikacja jest zamknięta — pod warunkiem instalacji PWA na ekranie początkowym i zgody iOS.</p>
- <div className="push-status"><span className={pushEnabled?"status-dot active":"status-dot"}/>{pushEnabled?"Powiadomienia są aktywne":"Powiadomienia nie są jeszcze aktywne"}</div>
- {pushEnabled?<button className="secondary" onClick={disablePushNotifications}>Wyłącz powiadomienia</button>:<button className="primary" onClick={enablePushNotifications}>Włącz powiadomienia</button>}
- <small className="muted push-hint">Na iPhonie: dodaj aplikację do ekranu początkowego, otwórz ją z ikony i zaakceptuj zgodę na powiadomienia.</small>
- {settingsMessage&&<p className="settings-message">{settingsMessage}</p>}
- </section>
- <section className="panel"><h3>Ważne informacje</h3><p className="muted">Plan treningowy jest ogólny i nie zastępuje zaleceń fizjoterapeuty. Przy bólu przerwij ćwiczenie. Kaloryczność to punkt startowy do obserwacji.</p></section></>}
- <nav className="mobile-nav">{nav.map(([id,label,Icon])=><button key={id} className={page===id?"active":""} onClick={()=>setPage(id)}><Icon size={17}/><span>{label}</span></button>)}</nav><footer>SKR FITNESS · SLEEPER BUILD JOURNEY</footer></main></div>;
+          <button type="button" className={moreActive || moreOpen ? "active" : ""} onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+            <Menu size={24} /><span>Więcej</span>
+          </button>
+        </nav>
+        <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Więcej">
+          <div className="more-list">
+            {MORE_NAV.map(id => {
+              const { label, icon: Icon } = PAGES[id];
+              return (
+                <button key={id} type="button" className={"more-item" + (page === id ? " active" : "")} onClick={() => navigate(id)}>
+                  <span className="icon-chip"><Icon size={20} /></span><span>{label}</span>
+                </button>
+              );
+            })}
+            <button type="button" className="more-item" onClick={() => { setMoreOpen(false); logout(); }}>
+              <span className="icon-chip danger"><LogOut size={20} /></span><span>Wyloguj się</span>
+            </button>
+          </div>
+        </BottomSheet>
+      </div>
+    </AppContext.Provider>
+  );
 }
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
-createRoot(document.getElementById("root")).render(<App/>);
+
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+createRoot(document.getElementById("root")).render(<ToastProvider><App /></ToastProvider>);

@@ -1,14 +1,44 @@
-# SkrySkry Fitness 2.0
+# SkrySkry Fitness 2.2
 
 Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
 
-## Nowość 2.0
-Przy każdym ćwiczeniu w planie FBW A/B/C znajduje się pole **Twoja maszyna / stanowisko**. Możesz wpisać numer maszyny, nazwę lub lokalizację (np. „Maszyna 04 · strefa nóg”). Zapis trafia do dziennika treningów i jest odtwarzany przy kolejnym wejściu w ten sam plan.
+## Co nowego w 2.2
+- **AI przez Abacus.AI zamiast OpenAI** – szacowanie kalorii i makro posiłków oraz analiza coacha korzystają z Abacus.AI RouteLLM (model domyślnie `gpt-4.1-mini`). Wystarczy opisać posiłek, np. „2 jajka sadzone i kromka chleba z masłem” – AI zwraca kcal, B/W/T i rozbicie na składniki.
+- **Naprawiony EAN** – sprawdzanie cyfry kontrolnej (błędnie odczytane kody są odrzucane od razu), obsługa EAN-8/EAN-13/UPC, zapytania do kilku wersji API Open Food Facts, cache wyników. Brak produktu w bazie to teraz jasny komunikat z przyciskami „Oszacuj przez AI” i „Dodaj ręcznie” (wcześniej mylące „Nie można połączyć się…”).
+- **Lepszy skaner** – rozpoznaje tylko kody produktów (EAN/UPC), szybszy odczyt, latarka (jeśli telefon ją obsługuje), wibracja po odczycie i przycisk „Wpisz kod ręcznie”.
+- **Wyszukiwarka jedzenia** – wyniki pojawiają się w trakcie pisania: najpierw wbudowana baza ok. 175 podstawowych produktów (jajka, pierś z kurczaka, ryż, banan…), potem polskie produkty ze sklepów z Open Food Facts (ze zdjęciem i marką). Gwiazdka dodaje produkt do **ulubionych**. Po wybraniu produktu widać kartę z kcal i makro przeliczanymi na żywo oraz przycisk porcji.
+- **Limity** – ochrona przed nadużyciami: 40 wyszukiwań/min i 60 zapytań AI/h na użytkownika.
+
+### Konfiguracja AI (Coolify)
+1. Wygeneruj klucz w Abacus.AI: **RouteLLM API → API Keys**.
+2. W Coolify → aplikacja → **Environment Variables** dodaj `ABACUS_API_KEY=<twój klucz>` (opcjonalnie `ABACUS_MODEL`, domyślnie `gpt-4.1-mini`).
+3. Zrób **Redeploy**. Bez klucza aplikacja działa normalnie – wyszukiwarka, baza podstawowa i skaner EAN nie wymagają AI.
+
+## Nowość 2.1
+- **Animacje ćwiczeń** – przycisk „Demo” przy każdym ćwiczeniu pokazuje wbudowaną animację SVG (bez YouTube i zewnętrznych zasobów) oraz wskazówki techniki. Nazwy ćwiczeń są po polsku (oryginał w nawiasie).
+- **Nowy wygląd** – spójny ciemny motyw (niebieski/różowy), dolna nawigacja: Przegląd · Trening · Dieta · Postępy · Więcej.
+- **Trening** – timer odpoczynku 60/90/120 s z wibracją, „Ostatnio: 3×10 @ 40 kg” i przycisk „Wpisz to samo”, poprawiony zapis daty, planu i serii.
+- **Dieta i woda** – przełączanie dni, „Ostatnio dodane”, cofanie (toast „Cofnij”) dla posiłków, wody i pomiarów.
+- **Postępy** – wykres wagi ze średnią kroczącą i linią celu, edycja/usuwanie pomiarów.
+- **Ustawienia per użytkownik** – cele (kcal, makro, woda, waga), kalkulator TDEE, motyw, strefa czasowa; onboarding przy pierwszym logowaniu.
+- **Tryb offline** – zmiany zapisane bez internetu są kolejkowane i synchronizowane po powrocie online.
+- **Backend** – globalna obsługa błędów, walidacja ID, filtrowanie wpisów po dacie, healthcheck `/api/health`.
+
+## Powrót do poprzedniej wersji
+Stan sprzed modernizacji jest zachowany w gałęzi `backup-przed-ulepszeniami`. W Coolify wystarczy zmienić gałąź źródłową na `backup-przed-ulepszeniami` i wykonać Redeploy (dane w bazie pozostają nienaruszone).
 
 ## Wdrożenie
-Pakiet projektu: `SkrySkry-Fitness-PWA-2.0.zip` (dołączony w rozmowie). W Coolify wybierz Docker Compose (`docker-compose.yml`), ustaw `ADMIN_USERNAME=skryskry`, własne `ADMIN_PASSWORD` (minimum 12 znaków), `SESSION_SECRET`, `DB_PASSWORD` oraz zgodny `DATABASE_URL`. Wystaw port 3000 i włącz HTTPS.
+W Coolify wybierz Docker Compose (`docker-compose.yml`), ustaw `ADMIN_USERNAME=skryskry`, własne `ADMIN_PASSWORD` (minimum 12 znaków), `SESSION_SECRET` (**wymagany** przy `NODE_ENV=production`), `DB_PASSWORD` oraz zgodny `DATABASE_URL`. Wystaw port 3000 i włącz HTTPS. Pełna lista zmiennych: `.env.example` (nowe zmienne są opcjonalne).
 
 Uwaga: ustaw hasło wyłącznie w zmiennych środowiskowych Coolify. Nie commituj `.env`.
+
+## Rozwój lokalnie
+```bash
+npm ci
+npm run dev        # serwer :3001 + Vite :5173
+npm run build      # build produkcyjny do dist/
+npm run start:prod # uruchomienie serwera produkcyjnego
+```
 
 ## Sleeper Build Edition — konfiguracja powiadomień
 
