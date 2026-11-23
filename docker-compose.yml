@@ -11,6 +11,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      ABACUS_API_KEY: ${ABACUS_API_KEY:-}
+      ABACUS_MODEL: ${ABACUS_MODEL:-gpt-4.1-mini}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s

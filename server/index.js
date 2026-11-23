@@ -4,11 +4,13 @@ import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
 import bcrypt from "bcryptjs";
 import webpush from "web-push";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { pool, initDb } from "./db.js";
+import { AiError, aiConfigured, aiProviderName, chat, chatJson } from "./ai.js";
+import { OffError, lookupBarcode, searchProducts } from "./food.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -267,141 +269,91 @@ app.get("/api/export", auth, h(async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), username: req.session.username, settings, entries: result.rows });
 }));
 
-const foodLookupCache = new Map();
-const FOOD_CACHE_TTL = 5 * 60 * 1000;
-function cachedFood(key) {
-  const item = foodLookupCache.get(key);
-  if (!item || item.expiresAt < Date.now()) { foodLookupCache.delete(key); return null; }
-  return item.value;
-}
-function storeFood(key, value) {
-  foodLookupCache.set(key, { value, expiresAt: Date.now() + FOOD_CACHE_TTL });
-  if (foodLookupCache.size > 250) foodLookupCache.delete(foodLookupCache.keys().next().value);
-}
-function mapOffProduct(product, fallbackCode = null) {
-  if (!product) return null;
-  const n = product.nutriments || {};
-  const rawKcal = n["energy-kcal_100g"] ?? n["energy-kcal_value"];
-  const kcal = rawKcal != null ? Number(rawKcal) :
-    (n["energy_100g"] != null ? Number(n["energy_100g"]) / 4.184 : NaN);
-  const name = product.product_name_pl || product.product_name || product.generic_name;
-  if (!name || !Number.isFinite(kcal) || kcal < 0) return null;
-  return {
-    name: [name, product.brands].filter(Boolean).join(" · ").slice(0, 160),
-    quantity: product.quantity || "",
-    kcal: Math.round(kcal),
-    protein: Number(n.proteins_100g || 0),
-    carbs: Number(n.carbohydrates_100g || 0),
-    fat: Number(n.fat_100g || 0),
-    image: product.image_front_small_url || product.image_front_url || null,
-    barcode: product.code || fallbackCode
-  };
-}
-async function offJson(url, timeout = 10000) {
-  const response = await fetch(url, {
-    headers: { "User-Agent": "SkrySkryFitness/1.1 (https://skryskry.pl)" },
-    signal: AbortSignal.timeout(timeout)
-  });
-  if (!response.ok) throw new Error("Open Food Facts HTTP " + response.status);
-  return response.json();
-}
+const foodLimiter = rateLimit({
+  windowMs: 60 * 1000, limit: 40, standardHeaders: "draft-7", legacyHeaders: false,
+  keyGenerator: (req, res) => req.session.userId ? "u" + req.session.userId : ipKeyGenerator(req.ip),
+  message: { error: "Za dużo wyszukiwań w krótkim czasie. Odczekaj chwilę." }
+});
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false,
+  keyGenerator: (req, res) => req.session.userId ? "u" + req.session.userId : ipKeyGenerator(req.ip),
+  message: { error: "Wykorzystano limit zapytań AI na tę godzinę. Spróbuj później." }
+});
 
-app.get("/api/food/barcode/:code", auth, h(async (req, res) => {
-  const code = String(req.params.code || "").replace(/\D/g, "");
-  if (!/^\d{8,14}$/.test(code)) return res.status(400).json({ error: "Nieprawidłowy kod kreskowy EAN." });
-  const key = "barcode:" + code;
-  const previous = cachedFood(key);
-  if (previous) return res.json(previous);
+app.get("/api/food/barcode/:code", auth, foodLimiter, h(async (req, res) => {
   try {
-    let payload;
-    try {
-      payload = await offJson("https://world.openfoodfacts.org/api/v3/product/" + encodeURIComponent(code) + ".json?fields=code,product_name,product_name_pl,generic_name,brands,quantity,nutriments,image_front_small_url,image_front_url");
-    } catch (error) {
-      console.warn("OFF v3 barcode lookup failed; trying v2:", error.message);
-      payload = await offJson("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(code) + ".json?fields=code,product_name,product_name_pl,generic_name,brands,quantity,nutriments,image_front_small_url,image_front_url");
+    const result = await lookupBarcode(req.params.code);
+    if (!result.product) {
+      return res.json({ product: null, code: result.code, message: `Produktu o kodzie ${result.code} nie ma jeszcze w bazie Open Food Facts. Wpisz nazwę i oszacuj wartości przez AI albo dodaj je ręcznie z etykiety.` });
     }
-    const product = mapOffProduct(payload.product, code);
-    const result = { product, source: "Open Food Facts" };
-    storeFood(key, result);
-    res.json(result);
+    res.json({ ...result, source: "Open Food Facts" });
   } catch (error) {
+    if (error instanceof OffError && error.status === 400) return res.status(400).json({ error: error.message });
     console.error("Food barcode lookup error:", error.message);
-    res.status(502).json({ error: "Nie można połączyć się z bazą Open Food Facts (EAN). Spróbuj ponownie za chwilę." });
+    res.status(502).json({ error: "Baza produktów (Open Food Facts) chwilowo nie odpowiada. Spróbuj ponownie za chwilę albo wyszukaj produkt po nazwie." });
   }
 }));
 
-app.get("/api/food/search", auth, h(async (req, res) => {
+app.get("/api/food/search", auth, foodLimiter, h(async (req, res) => {
   const parsed = z.string().trim().min(2).max(100).safeParse(String(req.query.q || ""));
   if (!parsed.success) return res.status(400).json({ error: "Wpisz co najmniej 2 znaki." });
-  const query = parsed.data;
-  const key = "search:" + query.toLocaleLowerCase("pl-PL");
-  const previous = cachedFood(key);
-  if (previous) return res.json(previous);
-  try {
-    // Full-text search is still served by OFF's legacy v1 endpoint.
-    const url = new URL("https://world.openfoodfacts.org/cgi/search.pl");
-    url.searchParams.set("search_terms", query);
-    url.searchParams.set("search_simple", "1");
-    url.searchParams.set("action", "process");
-    url.searchParams.set("json", "1");
-    url.searchParams.set("page_size", "20");
-    url.searchParams.set("fields", "product_name,product_name_pl,generic_name,lc,lang,brands,quantity,code,nutriments,image_front_small_url,image_front_url");
-    url.searchParams.set("lc", "pl");
-    url.searchParams.set("cc", "pl");
-    const payload = await offJson(url, 12000);
-    const products = (payload.products || []).map(product => ({
-      ...mapOffProduct(product),
-      language: product.lc || product.lang || null
-    })).filter(product => product && product.name);
-    products.sort((a, b) => Number(b.language === "pl") - Number(a.language === "pl"));
-    const result = { products: products.slice(0, 10), source: "Open Food Facts" };
-    storeFood(key, result);
-    res.json(result);
-  } catch (error) {
-    console.error("Food search error:", error.message);
-    res.status(502).json({ error: "Nie można połączyć się z bazą Open Food Facts (wyszukiwanie). Spróbuj ponownie za chwilę." });
-  }
+  res.json(await searchProducts(parsed.data));
 }));
 
-async function openAiChat(body) {
-  const result = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + process.env.OPENAI_API_KEY },
-    body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4o-mini", ...body }),
-    signal: AbortSignal.timeout(AI_TIMEOUT)
-  });
-  const data = await result.json().catch(() => ({}));
-  return { ok: result.ok, data };
-}
-const isTimeout = error => error?.name === "TimeoutError" || error?.name === "AbortError";
+app.get("/api/ai/status", auth, (_req, res) => res.json({ enabled: aiConfigured(), provider: aiProviderName() }));
 
-app.post("/api/ai/food-estimate", auth, h(async (req, res) => {
-  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: "Szacowanie AI jest opcjonalne i wymaga klucza OpenAI API oraz aktywnego rozliczania API w Coolify. Wyszukiwanie produktów i EAN działają bez AI." });
+const FOOD_AI_PROMPT = `Jesteś dietetykiem. Szacujesz wartości odżywcze jedzenia opisanego po polsku, według typowych polskich produktów i przepisów (dane typu tabele IŻŻ/USDA).
+Zwróć WYŁĄCZNIE obiekt JSON:
+{"name": "krótka nazwa po polsku", "grams": liczba (masa całej porcji w g/ml), "kcal": liczba, "protein": liczba, "carbs": liczba, "fat": liczba,
+ "per100": {"kcal": liczba, "protein": liczba, "carbs": liczba, "fat": liczba},
+ "items": [{"name": "składnik", "grams": liczba, "kcal": liczba}],
+ "confidence": "wysoka" | "średnia" | "niska", "note": "1 zdanie po polsku"}
+Zasady: kcal/protein/carbs/fat dotyczą CAŁEJ porcji. Jeśli podano gramaturę – użyj jej. Jeśli opis zawiera sztuki (np. "2 jajka", "kromka chleba") – przelicz na typowe gramy. Jeśli brak ilości – przyjmij typową porcję.
+Makro muszą być spójne z kaloriami (4/4/9 kcal na g). Liczby z max. 1 miejscem po przecinku.`;
+
+const aiFoodSchema = z.object({
+  name: z.string().min(1).max(160).catch("Danie"),
+  grams: z.coerce.number().finite().min(1).max(5000),
+  kcal: z.coerce.number().finite().min(0).max(10000),
+  protein: z.coerce.number().finite().min(0).max(1000),
+  carbs: z.coerce.number().finite().min(0).max(2000),
+  fat: z.coerce.number().finite().min(0).max(1000),
+  items: z.array(z.object({ name: z.string().max(120), grams: z.coerce.number().catch(0), kcal: z.coerce.number().catch(0) })).max(20).catch([]),
+  confidence: z.string().max(20).catch("średnia"),
+  note: z.string().max(300).catch("")
+}).passthrough();
+
+app.post("/api/ai/food-estimate", auth, aiLimiter, h(async (req, res) => {
   const parsed = z.object({
-    name: z.string().trim().min(2).max(180),
-    grams: z.number().finite().min(1).max(5000)
+    name: z.string().trim().min(2).max(300),
+    grams: z.coerce.number().finite().min(1).max(5000).optional().nullable()
   }).safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Podaj nazwę dania i prawidłową gramaturę (1–5000 g)." });
+  if (!parsed.success) return res.status(400).json({ error: "Opisz, co jesz (min. 2 znaki), np. „2 jajka sadzone i kromka chleba”." });
   const { name, grams } = parsed.data;
   try {
-    const { ok, data } = await openAiChat({
-      response_format: { type: "json_object" },
+    const raw = await chatJson({
       temperature: 0.2,
       messages: [
-        { role: "system", content: "Jesteś asystentem dietetycznym. Szacuj realistyczne wartości odżywcze typowego dania na podstawie polskich zwyczajów kulinarnych. Zwróć wyłącznie JSON: {\"kcal\": liczba, \"protein\": liczba, \"carbs\": liczba, \"fat\": liczba, \"note\": \"krótka informacja po polsku\"}. Wszystkie wartości dotyczą CAŁEJ podanej porcji, nie 100 g. Nie udawaj dokładności: zaznacz, że to szacunek. Kalorie i makroskładniki muszą być ze sobą w przybliżeniu spójne." },
-        { role: "user", content: "Oszacuj typowe danie: " + name + ". Masa gotowej porcji: " + grams + " g. Zwróć kalorie, białko, węglowodany i tłuszcze dla całej porcji." }
+        { role: "system", content: FOOD_AI_PROMPT },
+        { role: "user", content: `Opis: ${name}${grams ? `\nMasa całej porcji: ${grams} g` : "\nGramatura: nie podano (oszacuj typową porcję lub przelicz sztuki)."}` }
       ]
     });
-    if (!ok) return res.status(502).json({ error: "AI nie mogło oszacować dania: " + (data.error?.message || "spróbuj później") });
-    let estimate;
-    try { estimate = JSON.parse(data.choices?.[0]?.message?.content || "{}"); }
-    catch { return res.status(502).json({ error: "AI zwróciło nieprawidłowe dane. Spróbuj ponownie." }); }
-    const values = ["kcal", "protein", "carbs", "fat"].map(key => Number(estimate[key]));
-    if (values.some(v => !Number.isFinite(v) || v < 0 || v > 10000)) return res.status(502).json({ error: "AI zwróciło nieprawidłowe wartości odżywcze." });
-    res.json({ kcal: Math.round(values[0]), protein: Number(values[1].toFixed(1)), carbs: Number(values[2].toFixed(1)), fat: Number(values[3].toFixed(1)), note: String(estimate.note || "Wartości są orientacyjnym szacunkiem AI.").slice(0, 240) });
+    const est = aiFoodSchema.safeParse(raw);
+    if (!est.success) return res.status(502).json({ error: "AI zwróciło nieprawidłowe wartości. Spróbuj opisać danie dokładniej." });
+    const e = est.data;
+    const g = grams || e.grams;
+    // If the user gave grams but the model scaled differently, rescale to the requested mass.
+    const f = grams && e.grams ? grams / e.grams : 1;
+    const r = v => Math.round(v * f * 10) / 10;
+    res.json({
+      name: e.name, grams: Math.round(g), kcal: Math.round(e.kcal * f), protein: r(e.protein), carbs: r(e.carbs), fat: r(e.fat),
+      items: e.items, confidence: e.confidence,
+      note: (e.note || "Wartości są szacunkiem AI.") + " (Abacus.AI)",
+      provider: aiProviderName()
+    });
   } catch (error) {
-    console.error("AI food estimate error", error.message);
-    res.status(isTimeout(error) ? 504 : 500).json({ error: isTimeout(error) ? "AI nie odpowiedziało w ciągu 30 sekund. Spróbuj ponownie." : "Nie udało się oszacować wartości dania." });
+    if (error instanceof AiError) return res.status(error.status).json({ error: error.message });
+    throw error;
   }
 }));
 
@@ -442,21 +394,20 @@ async function buildCoachReport(userId) {
   return lines.join("\n");
 }
 
-app.post("/api/ai/coach", auth, h(async (req, res) => {
-  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: "Brak OPENAI_API_KEY w konfiguracji Coolify." });
+app.post("/api/ai/coach", auth, aiLimiter, h(async (req, res) => {
   const report = await buildCoachReport(req.session.userId);
   try {
-    const { ok, data } = await openAiChat({
+    const analysis = await chat({
+      temperature: 0.5,
       messages: [
-        { role: "system", content: "Jesteś rozsądnym trenerem i edukatorem żywieniowym. Odpowiadaj po polsku, bez zawstydzania, bez skrajnych diet. Uwzględnij regenerację, ból i bezpieczeństwo. Podaj mocne strony, obszary do poprawy i trzy konkretne kroki." },
+        { role: "system", content: "Jesteś rozsądnym trenerem i edukatorem żywieniowym. Odpowiadaj po polsku, bez zawstydzania, bez skrajnych diet. Uwzględnij regenerację, ból i bezpieczeństwo. Podaj mocne strony, obszary do poprawy i trzy konkretne kroki. Pisz zwięźle, używaj krótkich akapitów i list." },
         { role: "user", content: report }
       ]
-    });
-    if (!ok) return res.status(502).json({ error: "Usługa AI zwróciła błąd: " + (data.error?.message || "spróbuj później") });
-    res.json({ analysis: data.choices?.[0]?.message?.content || "Brak odpowiedzi AI.", report });
+    }, { timeout: 45000 });
+    res.json({ analysis, report });
   } catch (error) {
-    console.error("AI analysis error", error.message);
-    res.status(isTimeout(error) ? 504 : 500).json({ error: isTimeout(error) ? "AI nie odpowiedziało w ciągu 30 sekund. Spróbuj ponownie." : "Nie udało się wykonać analizy AI." });
+    if (error instanceof AiError) return res.status(error.status).json({ error: error.message });
+    throw error;
   }
 }));
 

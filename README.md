@@ -1,6 +1,18 @@
-# SkrySkry Fitness 2.1
+# SkrySkry Fitness 2.2
 
 Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
+
+## Co nowego w 2.2
+- **AI przez Abacus.AI zamiast OpenAI** – szacowanie kalorii i makro posiłków oraz analiza coacha korzystają z Abacus.AI RouteLLM (model domyślnie `gpt-4.1-mini`). Wystarczy opisać posiłek, np. „2 jajka sadzone i kromka chleba z masłem” – AI zwraca kcal, B/W/T i rozbicie na składniki.
+- **Naprawiony EAN** – sprawdzanie cyfry kontrolnej (błędnie odczytane kody są odrzucane od razu), obsługa EAN-8/EAN-13/UPC, zapytania do kilku wersji API Open Food Facts, cache wyników. Brak produktu w bazie to teraz jasny komunikat z przyciskami „Oszacuj przez AI” i „Dodaj ręcznie” (wcześniej mylące „Nie można połączyć się…”).
+- **Lepszy skaner** – rozpoznaje tylko kody produktów (EAN/UPC), szybszy odczyt, latarka (jeśli telefon ją obsługuje), wibracja po odczycie i przycisk „Wpisz kod ręcznie”.
+- **Wyszukiwarka jedzenia** – wyniki pojawiają się w trakcie pisania: najpierw wbudowana baza ok. 175 podstawowych produktów (jajka, pierś z kurczaka, ryż, banan…), potem polskie produkty ze sklepów z Open Food Facts (ze zdjęciem i marką). Gwiazdka dodaje produkt do **ulubionych**. Po wybraniu produktu widać kartę z kcal i makro przeliczanymi na żywo oraz przycisk porcji.
+- **Limity** – ochrona przed nadużyciami: 40 wyszukiwań/min i 60 zapytań AI/h na użytkownika.
+
+### Konfiguracja AI (Coolify)
+1. Wygeneruj klucz w Abacus.AI: **RouteLLM API → API Keys**.
+2. W Coolify → aplikacja → **Environment Variables** dodaj `ABACUS_API_KEY=<twój klucz>` (opcjonalnie `ABACUS_MODEL`, domyślnie `gpt-4.1-mini`).
+3. Zrób **Redeploy**. Bez klucza aplikacja działa normalnie – wyszukiwarka, baza podstawowa i skaner EAN nie wymagają AI.
 
 ## Nowość 2.1
 - **Animacje ćwiczeń** – przycisk „Demo” przy każdym ćwiczeniu pokazuje wbudowaną animację SVG (bez YouTube i zewnętrznych zasobów) oraz wskazówki techniki. Nazwy ćwiczeń są po polsku (oryginał w nawiasie).
