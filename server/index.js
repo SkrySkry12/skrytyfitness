@@ -300,6 +300,22 @@ if (!adminPassword || adminPassword.length < 12 || adminPassword === "USTAW_TUTA
   if (!existing.rowCount) await pool.query("INSERT INTO users(username,password_hash) VALUES($1,$2)", [username, await bcrypt.hash(adminPassword, 12)]);
 }
 
+const girlfriendPassword = process.env.KIELTYCZKA_PASSWORD;
+if (!girlfriendPassword || girlfriendPassword.length < 12) {
+  console.warn("UWAGA: ustaw KIELTYCZKA_PASSWORD (min. 12 znaków), aby utworzyć konto kieltyczka.");
+} else {
+  const existingGirlfriend = await pool.query("SELECT id FROM users WHERE username=$1", ["kieltyczka"]);
+  if (!existingGirlfriend.rowCount) {
+    await pool.query(
+      "INSERT INTO users(username,password_hash) VALUES($1,$2)",
+      ["kieltyczka", await bcrypt.hash(girlfriendPassword, 12)]
+    );
+    console.log("Created separate fitness profile: kieltyczka");
+  } else {
+    console.log("Fitness profile kieltyczka already exists; password was not changed.");
+  }
+}
+
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@skryskry.pl";

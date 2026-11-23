@@ -780,3 +780,33 @@ body,.login-shell{
 .workout-preview-panel{margin-top:10px;padding:10px 12px;border:1px solid rgba(117,170,255,.18);border-radius:12px;background:rgba(117,170,255,.055)}
 .workout-preview-panel[hidden]{display:none}
 .preview-toggle{white-space:nowrap;flex-shrink:0}
+
+
+/* Separate pink theme for the kieltyczka account. */
+.app.theme-pink {
+  --green: #f0a2d1;
+  --muted: #c2a8bd;
+  --line: #50364c;
+  background: #160f19;
+}
+.app.theme-pink .sidebar { background: #1d1420; border-color: #50364c; }
+.app.theme-pink .sidebar nav button.active,
+.app.theme-pink .sidebar nav button:hover { background: #42263f; color: #ffd0ec; }
+.app.theme-pink .sidebar nav button.active svg,
+.app.theme-pink .brand svg,
+.app.theme-pink .green,
+.app.theme-pink .brand-mark { color: #f0a2d1; }
+.app.theme-pink .primary { background: #f0a2d1; color: #281322; }
+.app.theme-pink .primary:hover { background: #ffc0e5; }
+.app.theme-pink .primary:disabled { opacity: .45; cursor: not-allowed; }
+.app.theme-pink .pill { background: #42263f; color: #ffd0ec; border-color: #704566; }
+.app.theme-pink .hero-stat { background: #2a1a2b; border-color: #50364c; color: #f0a2d1; }
+.app.theme-pink .tabs button,
+.app.theme-pink .secondary { background: #382438; color: #f4b8dd; border-color: #50364c; }
+.app.theme-pink .tabs button.selected { background: #56344f; border-color: #98618a; color: #ffe0f2; }
+.app.theme-pink .form-grid input:focus,
+.app.theme-pink .login-card input:focus { border-color: #f0a2d1; }
+.app.theme-pink .stat-card,
+.app.theme-pink .panel { background: #211722; border-color: #50364c; }
+.app.theme-pink .main { color: #f7edf5; }
+.app.theme-pink .logout:hover { color: #f0a2d1; }
