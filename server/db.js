@@ -1,6 +1,9 @@
 import pg from "pg";
 const { Pool } = pg;
 
+// Return DATE columns as plain "YYYY-MM-DD" strings (avoids timezone shifts in JS Date).
+pg.types.setTypeParser(1082, v => v);
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error(
@@ -14,6 +17,9 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000
 });
+
+// An idle client error must never crash the whole process.
+pool.on("error", err => console.error("[DB POOL ERROR]", err.message));
 
 export async function initDb() {
   await pool.query(`
@@ -32,6 +38,7 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS entries_user_date_idx ON entries(user_id, entry_date DESC);
+    CREATE INDEX IF NOT EXISTS entries_user_kind_date ON entries(user_id, kind, entry_date DESC);
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       settings JSONB NOT NULL DEFAULT '{}'::jsonb,
