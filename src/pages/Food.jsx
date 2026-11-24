@@ -46,6 +46,15 @@ export function Food() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
+  const [diagNeeded, setDiagNeeded] = useState(false);
+  const [diag, setDiag] = useState(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  const runDiagnostics = async () => {
+    setDiagBusy(true); setDiag(null);
+    try { setDiag(await api("/api/diagnostics")); }
+    catch (err) { setDiag({ error: err.message }); }
+    finally { setDiagBusy(false); }
+  };
   const [saving, setSaving] = useState(false);
   const [localResults, setLocalResults] = useState([]);
   const [notFound, setNotFound] = useState(false);
@@ -171,7 +180,12 @@ export function Food() {
       if (!result.product.complete) setSearchMsg("Ten produkt ma niepełne wartości odżywcze w bazie — uzupełnij je z etykiety albo oszacuj przez AI.");
       else toast(`Znaleziono: ${result.product.name}`, { type: "success" });
       setManualEan(false);
-    } catch (err) { setSearchMsg(err.message); reportError(err, { silent: true }); }
+    } catch (err) {
+      setSearchMsg(err.message);
+      // Product database unreachable: still offer AI / manual entry instead of a dead end.
+      if (err.status >= 500) { setNotFound(true); setDiagNeeded(true); }
+      reportError(err, { silent: true });
+    }
     finally { setBarcodeBusy(false); }
   };
 
@@ -187,7 +201,11 @@ export function Food() {
       setAiResult(r);
       setAiMsg(r.note);
       setQuery(""); setNotFound(false);
-    } catch (err) { setAiMsg(err.message); reportError(err, { silent: true }); }
+    } catch (err) {
+      setAiMsg(err.message);
+      if (err.status >= 500) setDiagNeeded(true);
+      reportError(err, { silent: true });
+    }
     finally { setAiBusy(false); }
   };
 
@@ -420,6 +438,14 @@ export function Food() {
               {aiBusy ? <Spinner /> : <Sparkles size={16} />} {aiBusy ? "Szacuję wartości…" : "Oszacuj kalorie i makro przez AI"}
             </button>
             {aiMsg && <p className="hint">{aiMsg}</p>}
+            {(diagNeeded || diag) && (
+              <div className="diag-box">
+                <button type="button" className="ghost small" disabled={diagBusy} onClick={runDiagnostics}>{diagBusy ? <Spinner /> : "🔎"} Sprawdź, co nie działa</button>
+                {diag?.error && <p className="hint">{diag.error}</p>}
+                {diag?.ai && <p className={"diag-line " + (diag.ai.ok ? "ok" : "bad")}>{diag.ai.ok ? "✅" : "❌"} AI: {diag.ai.message}</p>}
+                {diag?.food && <p className={"diag-line " + (diag.food.ok ? "ok" : "bad")}>{diag.food.ok ? "✅" : "❌"} Baza produktów: {diag.food.message}</p>}
+              </div>
+            )}
             {aiResult?.items?.length > 0 && (
               <div className="ai-items">
                 {aiResult.items.map((it, i) => <div key={i}><span>{it.name}{it.grams ? ` · ${Math.round(num(it.grams))} g` : ""}</span><b>{Math.round(num(it.kcal))} kcal</b></div>)}

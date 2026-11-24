@@ -1,6 +1,13 @@
-# SkrySkry Fitness 2.3
+# SkrySkry Fitness 2.3.1
 
 Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
+
+## Poprawka 2.3.1 – AI i skanowanie na stronie Jedzenie
+- Czytelne komunikaty zamiast ogólnego „spróbuj później”: brak klucza, zły klucz, brak środków, zła nazwa modelu, awaria bazy produktów.
+- AI ponawia zapytanie przy chwilowym błędzie, a przy złej zmiennej `ABACUS_MODEL` samo wraca do domyślnego modelu.
+- Skaner EAN ma zapasowe adresy Open Food Facts i ponowienia; gdy baza nie działa, od razu proponuje AI lub ręczne wpisanie.
+- Przycisk **„Sprawdź, co nie działa”** (pojawia się po błędzie) i endpoint `GET /api/diagnostics` pokazują, czy działa AI i baza produktów. W logach Coolify widać przyczynę (`[AI]`, `[OFF]`, `[DIAG]`), a przy starcie linię `[AI] włączone…` albo `[AI] WYŁĄCZONE…`.
+- **Wymagane w Coolify:** zmienna `ABACUS_API_KEY` z kluczem API z Abacus.AI. `ABACUS_MODEL` najlepiej nie ustawiać.
 
 ## Nowość 2.3 – cele i rozbudowane drzewko
 - **Moje cele** (zakładka „Drzewko”) – przycisk „Dodaj cel” pozwala wybrać gotowy cel (np. pierwsze / 5 / 10 podciągnięć, wyciskanie na maszynie 60/80/100 kg, suwnica, pompki 10/20/30, deska 60 s) albo ustawić własny: ćwiczenie + ciężar w kg, liczba powtórzeń lub sekundy.

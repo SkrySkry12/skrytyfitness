@@ -731,3 +731,8 @@ body.has-rest-timer .toast-stack { bottom: calc(146px + var(--safe-bottom)); }
   .sheet-handle { display: none; }
   .hero h1 span { display: inline; }
 }
+
+/* Food page diagnostics (AI / Open Food Facts) */
+.diag-box { display: grid; gap: 6px; margin-top: 8px; }
+.diag-line { margin: 0; font-size: 13px; line-height: 1.4; }
+.diag-line.bad { color: var(--danger, #e5484d); }
