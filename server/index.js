@@ -10,8 +10,8 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { pool, initDb } from "./db.js";
-import { AiError, aiConfigured, aiProviderName, chat, chatJson } from "./ai.js";
-import { OffError, lookupBarcode, searchProducts } from "./food.js";
+import { AiError, aiConfigured, aiModelName, aiProviderName, aiSelfTest, chat, chatJson } from "./ai.js";
+import { OffError, lookupBarcode, offSelfTest, searchProducts } from "./food.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -310,8 +310,8 @@ app.get("/api/food/barcode/:code", auth, foodLimiter, h(async (req, res) => {
     res.json({ ...result, source: "Open Food Facts" });
   } catch (error) {
     if (error instanceof OffError && error.status === 400) return res.status(400).json({ error: error.message });
-    console.error("Food barcode lookup error:", error.message);
-    res.status(502).json({ error: "Baza produktów (Open Food Facts) chwilowo nie odpowiada. Spróbuj ponownie za chwilę albo wyszukaj produkt po nazwie." });
+    console.error(`[OFF] skan ${req.params.code} nieudany: ${error.message}`);
+    res.status(502).json({ code: String(req.params.code).replace(/\D/g, ""), offline: true, error: "Nie udało się połączyć z bazą produktów Open Food Facts (to problem po ich stronie lub z połączeniem serwera). Możesz wpisać nazwę produktu i oszacować wartości przez AI albo przepisać je z etykiety." });
   }
 }));
 
@@ -321,7 +321,18 @@ app.get("/api/food/search", auth, foodLimiter, h(async (req, res) => {
   res.json(await searchProducts(parsed.data));
 }));
 
-app.get("/api/ai/status", auth, (_req, res) => res.json({ enabled: aiConfigured(), provider: aiProviderName() }));
+// AI status; ?test=1 also sends a tiny test prompt. Never exposes the key.
+app.get("/api/ai/status", auth, aiLimiter, h(async (req, res) => {
+  if (req.query.test) return res.json(await aiSelfTest());
+  res.json({ enabled: aiConfigured(), provider: aiProviderName(), model: aiModelName() });
+}));
+
+// One-click diagnostics for the Food page: AI + product database.
+app.get("/api/diagnostics", auth, aiLimiter, h(async (_req, res) => {
+  const [ai, food] = await Promise.all([aiSelfTest(), offSelfTest()]);
+  console.log(`[DIAG] AI: ${ai.ok ? "OK" : ai.reason + " – " + ai.message} | OFF: ${food.ok ? "OK" : food.message}`);
+  res.json({ ai, food, checkedAt: new Date().toISOString() });
+}));
 
 const FOOD_AI_PROMPT = `Jesteś dietetykiem. Szacujesz wartości odżywcze jedzenia opisanego po polsku, według typowych polskich produktów i przepisów (dane typu tabele IŻŻ/USDA).
 Zwróć WYŁĄCZNIE obiekt JSON:
@@ -543,4 +554,7 @@ setTimeout(cleanupReminderLog, 15000);
 
 process.on("unhandledRejection", reason => console.error("[UNHANDLED REJECTION]", reason));
 
-app.listen(port, "0.0.0.0", () => console.log(`SkrySkry Fitness działa na porcie ${port}`));
+app.listen(port, "0.0.0.0", () => {
+  console.log(`SkrySkry Fitness działa na porcie ${port}`);
+  console.log(aiConfigured() ? `[AI] włączone: ${aiProviderName()}, model ${aiModelName()}` : "[AI] WYŁĄCZONE – brak zmiennej ABACUS_API_KEY (funkcje AI na stronie Jedzenie nie zadziałają)");
+});

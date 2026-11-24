@@ -26,7 +26,7 @@ async function offFetch(url, timeout) {
   try {
     response = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(timeout) });
   } catch (error) {
-    throw new OffError("network: " + (error.name || error.message), 0);
+    throw new OffError("sieć: " + (error?.cause?.code || error.name || error.message), 0);
   }
   // OFF answers 404 with a JSON body {status:0} for unknown products – that is "not found", not a failure.
   if (response.status === 404) return { notFound: true };
@@ -91,6 +91,14 @@ export function mapProduct(p, fallbackCode = null) {
 }
 
 // --- barcode lookup ----------------------------------------------------------------------
+// Endpoints tried in order. The second host and the older v0 API are fallbacks for OFF outages/blocks.
+const OFF_PRODUCT_URLS = [
+  code => `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${FIELDS}`,
+  code => `https://pl.openfoodfacts.org/api/v2/product/${code}.json?fields=${FIELDS}`,
+  code => `https://world.openfoodfacts.org/api/v0/product/${code}.json`
+];
+const transient = error => !error.status || error.status === 429 || error.status >= 500;
+
 /** Returns { product|null, code }. Throws OffError only when OFF could not be reached at all. */
 export async function lookupBarcode(input) {
   const norm = normalizeBarcode(input);
@@ -98,30 +106,55 @@ export async function lookupBarcode(input) {
   const key = "ean:" + norm.code;
   const cached = cacheGet(key);
   if (cached) return cached;
-  let reachable = false, lastError = null;
+  const started = Date.now();
+  let reachable = false;
+  const causes = [];
   for (const code of norm.variants) {
-    for (const version of ["v2", "v3"]) {
-      try {
-        const data = await offFetch(`https://world.openfoodfacts.org/api/${version}/product/${code}.json?fields=${FIELDS}`, 8000);
-        reachable = true;
-        if (data.notFound || !data.product || data.status === 0 || data.status === "failure") break; // try next variant
-        const product = mapProduct(data.product, code);
-        if (product?.name || product?.complete) {
-          const result = { code: norm.code, product: { ...product, name: product.name || "Produkt " + code } };
-          cacheSet(key, result, 24 * 60 * 60 * 1000);
-          return result;
+    for (const build of OFF_PRODUCT_URLS) {
+      if (Date.now() - started > 20000) break; // keep the UI responsive
+      const url = build(code);
+      let data = null;
+      for (let attempt = 0; attempt < 2 && !data; attempt++) {
+        try {
+          data = await offFetch(url, 7000);
+        } catch (error) {
+          causes.push(`${new URL(url).host}${new URL(url).pathname.split("/").slice(0, 3).join("/")}: ${error.message}`);
+          console.warn(`[OFF] kod ${code} – ${url.split("?")[0]} nie odpowiada (${error.message})`);
+          if (!transient(error)) break;
+          if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 600));
         }
-        break;
-      } catch (error) {
-        lastError = error;
-        console.warn(`[OFF] barcode ${code} ${version} failed:`, error.message);
       }
+      if (!data) continue; // this endpoint failed – try the next one
+      reachable = true;
+      if (data.notFound || !data.product || data.status === 0 || data.status === "failure") break; // try next variant
+      const product = mapProduct(data.product, code);
+      if (product?.name || product?.complete) {
+        const result = { code: norm.code, product: { ...product, name: product.name || "Produkt " + code } };
+        cacheSet(key, result, 24 * 60 * 60 * 1000);
+        return result;
+      }
+      break;
     }
   }
-  if (!reachable) throw new OffError("Baza Open Food Facts nie odpowiada (" + (lastError?.message || "błąd sieci") + ").", 502);
+  if (!reachable) {
+    const cause = [...new Set(causes)].slice(-3).join("; ") || "błąd sieci";
+    console.error(`[OFF] kod ${norm.code}: baza nieosiągalna po ${Date.now() - started} ms – ${cause}`);
+    throw new OffError(cause, 502);
+  }
   const result = { code: norm.code, product: null };
   cacheSet(key, result, 30 * 60 * 1000);
   return result;
+}
+
+/** Diagnostics: can the server reach Open Food Facts? */
+export async function offSelfTest() {
+  const started = Date.now();
+  try {
+    const data = await offFetch(`https://world.openfoodfacts.org/api/v2/product/5449000000996.json?fields=code,product_name`, 8000);
+    return { ok: Boolean(data.product || data.notFound), ms: Date.now() - started, message: "Baza produktów odpowiada." };
+  } catch (error) {
+    return { ok: false, ms: Date.now() - started, message: "Serwer nie może połączyć się z Open Food Facts (" + error.message + ")." };
+  }
 }
 
 // --- search ------------------------------------------------------------------------------
