@@ -1,6 +1,6 @@
 {
   "name": "skryskry-fitness",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,13 +12,14 @@
     "start:prod": "node server/index.js"
   },
   "dependencies": {
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "bcryptjs": "^2.4.3",
     "connect-pg-simple": "^10.0.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.5",
     "express-session": "^1.18.1",
     "helmet": "^8.0.0",
-    "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.468.0",
     "pg": "^8.13.1",
     "react": "^18.3.1",

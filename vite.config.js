@@ -8,7 +8,7 @@ export default defineConfig({
     outDir: "dist",
     rollupOptions: {
       output: {
-        // html5-qrcode is loaded lazily via dynamic import() in Scanner.jsx (own chunk).
+        // ZXing is loaded lazily via dynamic import() in Scanner.jsx (own chunk).
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
           if (id.includes("lucide-react")) return "icons";
