@@ -1,10 +1,10 @@
 import {
-  Award, CalendarCheck, Crown, Droplets, Dumbbell, Flame, Footprints, Goal, Medal, Mountain, Ruler, Scale,
+  Award, CalendarCheck, HeartPulse, Timer, Route, Crown, Droplets, Dumbbell, Flame, Footprints, Goal, Medal, Mountain, Ruler, Scale,
   Sprout, Star, Target, TrendingDown, Trophy, Utensils, Weight, Zap
 } from "lucide-react";
 import { dayKey } from "./dates.js";
 import { num } from "./format.js";
-import { GOAL_XP, countRecords, exerciseHistory, goalProgress, totalVolume } from "./goals.js";
+import { GOAL_XP, cardioTotals, countRecords, exerciseHistory, goalProgress, totalVolume } from "./goals.js";
 
 export const BRANCHES = [
   { id: "habits", title: "Nawyki i treningi", icon: Flame, color: "var(--accent)" },
@@ -64,6 +64,7 @@ export function buildAchievements(stats, entries = [], settings = {}) {
   const history = exerciseHistory(entries);
   const records = countRecords(history);
   const volume = totalVolume(entries);
+  const cardio = cardioTotals(entries);
   const goals = Array.isArray(settings?.goals) ? settings.goals : [];
   const goalStates = goals.map(g => ({ goal: g, ...goalProgress(g, history) }));
   const achievedGoals = goalStates.filter(g => g.achieved).length;
@@ -86,6 +87,10 @@ export function buildAchievements(stats, entries = [], settings = {}) {
     ...tiers("habits", "active-weeks", activeWeeks, [
       [4, "Miesiąc regularności", 120, Footprints], [12, "Kwartał regularności", 250, Mountain]
     ], Footprints, n => `Trenuj co najmniej 2 razy w tygodniu przez ${n} tygodni.`),
+    { id: "cardio-1", branch: "habits", title: "Pierwsze cardio", description: "Zapisz pierwsze cardio w „Strefie cardio” (np. bieżnia, orbitrek, rower).", icon: HeartPulse, xp: 30, unlocked: cardio.sessions >= 1, progress: { cur: Math.min(cardio.sessions, 1), target: 1 } },
+    ...tiers("habits", "cardio-min", Math.round(cardio.minutes), [[60, "Godzina cardio", 60, Timer], [300, "5 godzin cardio", 150, Timer]], Timer,
+      n => `Zbierz łącznie ${n} minut cardio.`),
+    ...tiers("habits", "cardio-km", cardio.km, [[10, "10 km za Tobą", 80, Route]], Route, n => `Przejdź, przebiegnij lub przejedź łącznie ${n} km w cardio.`),
 
     // --- Dieta ---
     ...tiers("diet", "food", foodEntries, [[1, "Pierwszy wpis", 20, Utensils], [100, "Sto posiłków", 120, Utensils]], Utensils,
@@ -131,7 +136,7 @@ export function buildAchievements(stats, entries = [], settings = {}) {
   return {
     list, xp, ...levelInfo(xp),
     unlocked: list.filter(a => a.unlocked).length,
-    workouts, foodDays, records, volume, achievedGoals, goalStates, history
+    workouts, foodDays, records, volume, achievedGoals, goalStates, history, cardio
   };
 }
 

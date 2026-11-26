@@ -1,6 +1,13 @@
-# SkrySkry Fitness 2.3.1
+# SkrySkry Fitness 2.4
 
 Prywatna aplikacja PWA do prowadzenia redukcji, treningów, diety i pomiarów.
+
+## Nowość 2.4 – Strefa cardio
+- Na stronie **Trening** jest nowa sekcja **„Strefa cardio”** z przyciskami: Bieżnia, Orbitrek, Rower stacjonarny, Rower poziomy, Wioślarz, Stepowanie na maszynie, Bieganie, Spacer, Pływanie, Skakanka.
+- Cardio można dodać do dowolnego planu tego samego dnia (np. plan A + bieżnia) albo zapisać **samo cardio** – w kalendarzu pojawi się „CARDIO” (lub „A+🏃” przy połączeniu z planem).
+- Karta cardio ma pola: **czas (min), dystans (km), prędkość / poziom, nachylenie (opcjonalnie), kalorie** i przycisk **„Zrobione”** – zamiast kg × powtórzeń. Kartę można usunąć, a przycisk „Wpisz to samo” kopiuje ostatni wynik.
+- Ćwiczenie cardio wybrane w „Dodaj własne ćwiczenie” (lub z grupą „Cardio”) też staje się kartą cardio.
+- Cardio nie zmienia rekordów siłowych ani tonażu. Nowe osiągnięcia: Pierwsze cardio, Godzina cardio, 5 godzin cardio, 10 km za Tobą.
 
 ## Poprawka 2.3.1 – AI i skanowanie na stronie Jedzenie
 - Czytelne komunikaty zamiast ogólnego „spróbuj później”: brak klucza, zły klucz, brak środków, zła nazwa modelu, awaria bazy produktów.

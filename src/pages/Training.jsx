@@ -6,7 +6,7 @@ import { BottomSheet } from "../components/BottomSheet.jsx";
 import { RestTimer } from "../components/RestTimer.jsx";
 import { Spinner } from "../components/Spinner.jsx";
 import { ExerciseDemo } from "../exercises-animations.jsx";
-import { PLANS, EXERCISES, MUSCLES, exerciseLabel, exerciseKey, findExercise, animationFor, parseScheme } from "../lib/exercises.js";
+import { PLANS, EXERCISES, MUSCLES, CARDIO_EXERCISES, CARDIO_ICONS, exerciseLabel, exerciseKey, findExercise, animationFor, parseScheme, isCardio, cardioSummary } from "../lib/exercises.js";
 import { dayKey, formatLong, formatDayMonth, shiftMonth } from "../lib/dates.js";
 import { fmtKg, num, pl } from "../lib/format.js";
 
@@ -19,13 +19,39 @@ export function displayExerciseName(ex) {
 }
 
 const setSummary = sets => sets.map((s, j) => `S${j + 1}: ${fmtKg(s.kg || 0)} kg × ${s.reps || 0}`).join(" · ");
+/** Summary of a saved exercise: cardio → "20 min · 2,5 km …", strength → sets. */
+const exerciseSummary = ex => (isCardio(ex) ? cardioSummary(ex.sets?.[0]) : setSummary(ex.sets || []));
+const cardioCounts = s => Boolean(s?.done) || num(s?.minutes ?? s?.reps) > 0;
+const EMPTY_CARDIO = { minutes: "", km: "", level: "", incline: "", kcal: "", done: false };
+const CARDIO_FIELDS = [
+  ["minutes", "Czas", "min", "numeric", "1"], ["km", "Dystans", "km", "decimal", "0.1"],
+  ["level", "Prędkość / poziom", "", "decimal", "0.5"], ["incline", "Nachylenie", "% · opcjonalnie", "decimal", "0.5"],
+  ["kcal", "Kalorie", "kcal", "numeric", "1"]
+];
+const cardioItem = (lib, name) => lib
+  ? { key: lib.id, exId: lib.id, name: exerciseLabel(lib), short: lib.name, original: lib.original, muscle: "Cardio", cardio: true, custom: false }
+  : { key: exerciseKey({ name }), name, short: name, muscle: "Cardio", cardio: true, custom: true };
+const blank0 = v => (num(v) ? String(v) : ""); // show empty fields instead of "0"
+const toCardioForm = s => ({
+  minutes: blank0(s?.minutes ?? s?.reps), km: blank0(s?.km), level: blank0(s?.level),
+  incline: blank0(s?.incline), kcal: blank0(s?.kcal), done: Boolean(s?.done)
+});
 
 /** "3×10 @ 40 kg" when all done sets are equal, otherwise "10@40 · 8@42,5". */
 function compactSets(sets) {
   if (!sets.length) return "";
+  if (sets[0]?.minutes != null) return cardioSummary(sets[0]);
   const same = sets.every(s => num(s.kg) === num(sets[0].kg) && num(s.reps) === num(sets[0].reps));
   if (same) return `${sets.length}×${num(sets[0].reps)}${num(sets[0].kg) ? ` @ ${fmtKg(sets[0].kg)} kg` : ""}`;
   return sets.map(s => `${num(s.reps)}${num(s.kg) ? "@" + fmtKg(s.kg) : ""}`).join(" · ");
+}
+
+/** Calendar badge: plan letter, "CARDIO" for cardio-only days, "A+🏃" when cardio was added to a plan. */
+function calendarBadge(e) {
+  const hasCardio = (e.data?.exercises || []).some(isCardio);
+  const short = PLANS[e.data?.plan]?.short;
+  if (!short) return hasCardio ? "CARDIO" : "✓";
+  return hasCardio ? short + "+🏃" : short;
 }
 
 export function Training() {
@@ -43,6 +69,7 @@ export function Training() {
   const [demo, setDemo] = useState(null);
   const [restKey, setRestKey] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [cardio, setCardio] = useState([]); // cardio items for the selected day (independent of the plan)
 
   const workouts = useMemo(() => entries.filter(e => e.kind === "workout"), [entries]);
   const workoutsByDate = useMemo(() => workouts.reduce((acc, e) => { (acc[dayKey(e)] ??= []).push(e); return acc; }, {}), [workouts]);
@@ -55,7 +82,7 @@ export function Training() {
       return { key: exId, exId, name: exerciseLabel(ex), short: ex.name, original: ex.original, muscle: ex.muscle, scheme, custom: false };
     });
     const saved = (editingEntry?.data?.plan === plan ? editingEntry.data.exercises || [] : [])
-      .filter(ex => ex.custom)
+      .filter(ex => ex.custom && !isCardio(ex))
       .map(ex => ({ name: ex.name, muscle: ex.muscle || "Inne", scheme: `${Math.max(1, (ex.sets || []).length)} × ${ex.sets?.[0]?.reps || 10}` }));
     const extras = [...saved, ...(customExercises[plan] || [])].map(c => ({
       key: exerciseKey({ name: c.name }), name: c.name, short: c.name, muscle: c.muscle, scheme: c.scheme, custom: true
@@ -73,7 +100,7 @@ export function Training() {
       if (w.id === editingId || dayKey(w) > workoutDate) continue;
       for (const ex of w.data?.exercises || []) {
         const key = exerciseKey(ex);
-        const done = (ex.sets || []).filter(s => s.done);
+        const done = (ex.sets || []).filter(s => (isCardio(ex) ? cardioCounts(s) : s.done));
         if (key && !map[key] && done.length) map[key] = { date: dayKey(w), sets: done };
       }
     }
@@ -101,6 +128,7 @@ export function Training() {
   const copyPrevious = item => {
     const prev = previous[item.key];
     if (!prev) return;
+    if (item.cardio) { writeSets(item, [{ ...toCardioForm(prev.sets[0]), done: false }]); return; }
     writeSets(item, prev.sets.map(s => ({ kg: String(s.kg ?? ""), reps: String(s.reps ?? ""), done: false })));
   };
 
@@ -108,9 +136,18 @@ export function Training() {
     const day = dayKey(entry);
     const p = PLANS[entry.data?.plan] ? entry.data.plan : plan;
     const loaded = {};
+    const loadedCardio = [];
     for (const ex of entry.data?.exercises || []) {
+      if (isCardio(ex)) {
+        const lib = (ex.exId && EXERCISES[ex.exId]) || findExercise(ex.name);
+        const item = cardioItem(lib?.cardio ? lib : null, ex.name);
+        if (!loadedCardio.some(c => c.key === item.key)) loadedCardio.push(item);
+        loaded[item.key] = [toCardioForm(ex.sets?.[0])];
+        continue;
+      }
       loaded[exerciseKey(ex)] = (ex.sets || []).map(s => ({ kg: String(s.kg ?? ""), reps: String(s.reps ?? ""), done: Boolean(s.done) }));
     }
+    setCardio(loadedCardio);
     setWorkoutDate(day); setMonth(day.slice(0, 7)); setPlan(p);
     setEditingId(entry.id); setSets(loaded); setDirty(false);
   };
@@ -120,13 +157,29 @@ export function Training() {
     if (dirty && !window.confirm(CONFIRM_LOSE)) return;
     const existing = workoutsByDate[day]?.[0];
     if (existing) loadEntry(existing);
-    else { setWorkoutDate(day); setMonth(day.slice(0, 7)); setEditingId(null); setSets({}); setDirty(false); }
+    else { setWorkoutDate(day); setMonth(day.slice(0, 7)); setEditingId(null); setSets({}); setCardio([]); setDirty(false); }
   };
 
   const changePlan = k => {
     if (k === plan) return;
     if ((dirty || editingId) && !window.confirm(CONFIRM_LOSE)) return;
-    setPlan(k); setSets({}); setDirty(false);
+    // Cardio entered for this day stays when switching the strength plan.
+    const cardioKeys = new Set(cardio.map(c => c.key));
+    setPlan(k); setSets(cur => Object.fromEntries(Object.entries(cur).filter(([key]) => cardioKeys.has(key)))); setDirty(cardio.length > 0);
+  };
+
+  const getCardio = item => sets[item.key]?.[0] || EMPTY_CARDIO;
+  const updateCardio = (item, field, value) => writeSets(item, [{ ...getCardio(item), [field]: value }]);
+  const addCardio = item => {
+    if (cardio.some(c => c.key === item.key)) { toast(`„${item.short}” jest już dodane — uzupełnij wyniki poniżej`, { type: "info" }); return; }
+    setCardio(cur => [...cur, item]);
+    writeSets(item, [{ ...EMPTY_CARDIO }]);
+    toast(`Dodano cardio: ${item.short}`, { type: "info" });
+  };
+  const removeCardio = item => {
+    setCardio(cur => cur.filter(c => c.key !== item.key));
+    setSets(cur => { const next = { ...cur }; delete next[item.key]; return next; });
+    setDirty(true);
   };
 
   const addCustomExercise = () => {
@@ -134,6 +187,12 @@ export function Training() {
     if (!typed) return;
     // Library exercise picked from the suggestions → keep its full label, muscle group and demo.
     const lib = findExercise(typed);
+    // Cardio picked from the library (or group "Cardio") → a cardio card with time/distance instead of kg × reps.
+    if (lib?.cardio || (!lib && newEx.muscle === "Cardio")) {
+      addCardio(cardioItem(lib?.cardio ? lib : null, typed));
+      setNewEx(v => ({ ...v, name: "" }));
+      return;
+    }
     const name = lib ? exerciseLabel(lib) : typed;
     const scheme = `${Math.max(1, Math.min(10, Number(newEx.sets) || 3))} × ${Math.max(1, Math.min(100, Number(newEx.reps) || 10))}`;
     setCustomExercises(cur => ({ ...cur, [plan]: [...(cur[plan] || []), { name, muscle: lib?.muscle || newEx.muscle || "Inne", scheme }] }));
@@ -147,11 +206,24 @@ export function Training() {
       name: item.name, muscle: item.muscle, custom: item.custom,
       sets: getSets(item).map(s => ({ kg: num(s.kg), reps: num(s.reps), done: Boolean(s.done) }))
     })).filter(ex => ex.sets.some(s => s.done || s.kg > 0));
-    if (!exercises.length) {
-      toast("Oznacz co najmniej jedną serię jako wykonaną lub wpisz ciężar.", { type: "error" });
+    const cardioDone = cardio.map(item => {
+      const c = getCardio(item);
+      const minutes = num(c.minutes);
+      return {
+        ...(item.exId ? { exId: item.exId } : {}), name: item.name, muscle: "Cardio", cardio: true, custom: item.custom,
+        sets: [{ minutes, km: num(c.km), level: num(c.level), incline: num(c.incline), kcal: num(c.kcal), done: Boolean(c.done), kg: 0, reps: minutes }]
+      };
+    }).filter(ex => cardioCounts(ex.sets[0]));
+    if (!exercises.length && !cardioDone.length) {
+      toast(cardio.length ? "Wpisz czas cardio albo oznacz je jako zrobione ✓." : "Oznacz co najmniej jedną serię jako wykonaną lub wpisz ciężar.", { type: "error" });
       return;
     }
-    const data = { plan, name: PLANS[plan].name, exercises, completed: exercises.filter(ex => ex.sets.some(s => s.done)).map(ex => ex.name), total: items.length };
+    const cardioOnly = !exercises.length;
+    exercises.push(...cardioDone);
+    const data = {
+      plan: cardioOnly ? "CARDIO" : plan,
+      name: cardioOnly ? "Cardio" : PLANS[plan].name + (cardioDone.length ? " + cardio" : ""),
+      exercises, completed: exercises.filter(ex => ex.sets.some(s => s.done)).map(ex => ex.name), total: items.length + cardio.length };
     setSaving(true);
     try {
       if (editingId) {
@@ -171,7 +243,7 @@ export function Training() {
     if (!window.confirm("Usunąć ten trening?")) return;
     try {
       await deleteEntry(entry.id);
-      if (entry.id === editingId) { setEditingId(null); setSets({}); setDirty(false); }
+      if (entry.id === editingId) { setEditingId(null); setSets({}); setCardio([]); setDirty(false); }
       toast("Usunięto trening", {
         type: "info",
         action: { label: "Cofnij", onClick: () => createEntry("workout", entry.data, dayKey(entry)).catch(reportError) }
@@ -194,7 +266,7 @@ export function Training() {
       <div className="page-intro">
         <p className="eyebrow">PLANER TRENINGOWY</p>
         <h1>Twój kalendarz</h1>
-        <p className="muted">Wybierz dzień i plan, uzupełnij ciężar i powtórzenia. Przycisk „Demo” pokaże jak wykonać ćwiczenie.</p>
+        <p className="muted">Wybierz dzień i plan, uzupełnij ciężar i powtórzenia. Przycisk „Demo” pokaże jak wykonać ćwiczenie. Bieżnię, orbitrek czy rower dodasz w „Strefie cardio” niżej.</p>
       </div>
 
       <section className="card calendar">
@@ -210,7 +282,7 @@ export function Training() {
               className={"calendar-day" + (day === workoutDate ? " selected" : "") + (day === today ? " today" : "") + (workoutsByDate[day] ? " has-workout" : "")}
               aria-label={formatLong(day) + (workoutsByDate[day] ? ", zapisany trening" : "")}>
               <b>{Number(day.slice(-2))}</b>
-              {workoutsByDate[day] && <small>{workoutsByDate[day].map(e => PLANS[e.data?.plan]?.short || "✓").join(",")}</small>}
+              {workoutsByDate[day] && <small>{workoutsByDate[day].map(calendarBadge).join(",")}</small>}
             </button>
           ) : <span key={"e" + i} className="calendar-empty" />)}
         </div>
@@ -280,6 +352,63 @@ export function Training() {
         );
       })}
 
+      <section className="card cardio-zone">
+        <div className="card-head">
+          <div><p className="eyebrow">STREFA CARDIO</p><h3>Bieżnia, orbitrek, rower…</h3></div>
+          <span className="cardio-badge">❤️ cardio</span>
+        </div>
+        <p className="muted small-text">Kliknij, na czym ćwiczysz — dodasz to do treningu z tego dnia (możesz połączyć np. plan {PLANS[plan].short} + bieżnię albo zrobić samo cardio).</p>
+        <div className="cardio-quick">
+          {CARDIO_EXERCISES.map(ex => {
+            const added = cardio.some(c => c.key === ex.id);
+            return (
+              <button type="button" key={ex.id} className={"cardio-chip" + (added ? " added" : "")} aria-pressed={added} onClick={() => addCardio(cardioItem(ex))}>
+                <span aria-hidden="true">{CARDIO_ICONS[ex.id] || "❤️"}</span> {ex.name}{added ? " ✓" : ""}
+              </button>
+            );
+          })}
+        </div>
+        {!cardio.length && <small className="muted">Wskazówka: na początek wystarczy 15–20 minut w tempie, w którym możesz jeszcze mówić.</small>}
+      </section>
+
+      {cardio.map(item => {
+        const c = getCardio(item);
+        const prev = previous[item.key];
+        return (
+          <article className={"card exercise-card cardio-card" + (c.done ? " complete" : "")} key={"cardio-" + item.key}>
+            <div className="exercise-head">
+              <div className="exercise-title">
+                <b><span aria-hidden="true">{CARDIO_ICONS[item.exId] || "❤️"}</span> {item.short}</b>
+                {item.original && <small className="muted">({item.original})</small>}
+                <span className="muscle-tag cardio-tag">Cardio{item.custom ? " · własne" : ""}</span>
+              </div>
+              <div className="row gap">
+                <button type="button" className="demo-btn" onClick={() => setDemo(item)} aria-label={`Pokaż wskazówki: ${item.short}`}><PlayCircle size={18} /> Demo</button>
+                <button type="button" className="icon-btn" onClick={() => removeCardio(item)} aria-label={`Usuń cardio: ${item.short}`}><Trash2 size={16} /></button>
+              </div>
+            </div>
+            {prev && (
+              <div className="previous-result">
+                <span>Ostatnio ({formatDayMonth(prev.date)}): <b>{compactSets(prev.sets)}</b></span>
+                <button type="button" className="link-btn" onClick={() => copyPrevious(item)}><Copy size={13} /> Wpisz to samo</button>
+              </div>
+            )}
+            <div className="cardio-grid">
+              {CARDIO_FIELDS.map(([field, label, unit, mode, step]) => (
+                <label className="field" key={field}>
+                  <span>{label}{unit && <small> ({unit})</small>}</span>
+                  <input type="number" min="0" step={step} inputMode={mode} placeholder="0" value={c[field]} onChange={e => updateCardio(item, field, e.target.value)} />
+                </label>
+              ))}
+              <button type="button" className={"cardio-done" + (c.done ? " on" : "")} aria-pressed={c.done} onClick={() => updateCardio(item, "done", !c.done)}>
+                <Check size={18} /> {c.done ? "Zrobione" : "Oznacz jako zrobione"}
+              </button>
+            </div>
+            {num(c.minutes) > 0 && <small className="muted">{cardioSummary({ minutes: num(c.minutes), km: num(c.km), level: num(c.level), incline: num(c.incline), kcal: num(c.kcal) })}</small>}
+          </article>
+        );
+      })}
+
       <section className="card">
         <h3>Dodaj własne ćwiczenie</h3>
         <div className="form-grid">
@@ -309,7 +438,7 @@ export function Training() {
           <article className={"history-item" + (entry.id === editingId ? " active" : "")} key={entry.id}>
             <div className="card-head"><b>{entry.data?.name || "Trening"}</b>{entry.id === editingId && <span className="badge">edytujesz</span>}</div>
             {(entry.data?.exercises || []).map((ex, i) => (
-              <div className="history-exercise" key={i}><b>{displayExerciseName(ex)}</b><span>{setSummary(ex.sets || [])}</span></div>
+              <div className="history-exercise" key={i}><b>{displayExerciseName(ex)}</b><span>{exerciseSummary(ex)}</span></div>
             ))}
             {!entry.data?.exercises?.length && <p className="muted">Zapisano trening bez szczegółowych wyników.</p>}
             <div className="row gap">
@@ -326,7 +455,7 @@ export function Training() {
         <p className="muted small-text">Podgląd nie zmienia aktualnie wpisywanych wyników.</p>
         {workouts.slice(0, 10).map(entry => {
           const expanded = expandedId === entry.id;
-          const doneEx = (entry.data?.exercises || []).filter(ex => (ex.sets || []).some(s => s.done));
+          const doneEx = (entry.data?.exercises || []).filter(ex => (ex.sets || []).some(s => (isCardio(ex) ? cardioCounts(s) : s.done)));
           return (
             <article className="history-item" key={entry.id}>
               <div className="card-head">
@@ -337,7 +466,7 @@ export function Training() {
                 <div className="preview-panel">
                   {doneEx.map((ex, i) => (
                     <div className="history-exercise" key={i}><b>{displayExerciseName(ex)}</b>
-                      <span>{(ex.sets || []).map((s, j) => s.done ? `S${j + 1}: ${fmtKg(s.kg || 0)} kg × ${s.reps || 0}` : null).filter(Boolean).join(" · ")}</span>
+                      <span>{isCardio(ex) ? cardioSummary(ex.sets?.[0]) : (ex.sets || []).map((s, j) => s.done ? `S${j + 1}: ${fmtKg(s.kg || 0)} kg × ${s.reps || 0}` : null).filter(Boolean).join(" · ")}</span>
                     </div>
                   ))}
                   {!doneEx.length && <p className="muted">Brak serii oznaczonych jako wykonane w tym treningu.</p>}

@@ -735,3 +735,19 @@ body.has-rest-timer .toast-stack { bottom: calc(146px + var(--safe-bottom)); }
 .diag-box { display: grid; gap: 6px; margin-top: 8px; }
 .diag-line { margin: 0; font-size: 13px; line-height: 1.4; }
 .diag-line.bad { color: var(--danger, #e5484d); }
+
+/* --- Strefa cardio --- */
+.cardio-zone .card-head { align-items: center; }
+.cardio-badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, #ef4444 16%, transparent); color: #f87171; white-space: nowrap; }
+.cardio-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 10px 0 6px; }
+.cardio-chip { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border, rgba(255,255,255,.12)); background: var(--surface-2, rgba(255,255,255,.04)); color: inherit; font-weight: 600; font-size: 14px; text-align: left; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
+.cardio-chip span { font-size: 20px; line-height: 1; }
+.cardio-chip:active { transform: scale(.97); }
+.cardio-chip.added { border-color: #f87171; background: color-mix(in srgb, #ef4444 14%, transparent); }
+.cardio-card { border-left: 3px solid #f87171; }
+.cardio-tag { background: color-mix(in srgb, #ef4444 16%, transparent); color: #f87171; }
+.cardio-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0 6px; }
+.cardio-grid .field input { width: 100%; }
+.cardio-done { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 14px; border: 1px dashed var(--border, rgba(255,255,255,.2)); background: transparent; color: inherit; font-weight: 700; cursor: pointer; }
+.cardio-done.on { border-style: solid; border-color: var(--success, #22c55e); background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent); color: var(--success, #22c55e); }
+@media (min-width: 640px) { .cardio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cardio-done { grid-column: span 1; } }
