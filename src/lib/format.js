@@ -8,7 +8,14 @@ export function plural(n, one, few, many) {
 }
 export const pl = (n, one, few, many) => `${n} ${plural(n, one, few, many)}`;
 
-export const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+// Accepts Polish decimal comma too ("5,5" → 5.5).
+export const num = v => { const n = Number(typeof v === "string" ? v.replace(",", ".").trim() : v); return Number.isFinite(n) ? n : 0; };
+/** Keeps only digits and one decimal separator while typing (comma or dot). */
+export const decimalInput = v => {
+  const s = String(v ?? "").replace(/[^\d.,]/g, "").replace(/\./g, ",");
+  const i = s.indexOf(",");
+  return i < 0 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/,/g, "");
+};
 export const round1 = v => Math.round(num(v) * 10) / 10;
 export const fmtKg = v => (v == null || v === "" ? "—" : String(round1(v)).replace(".", ","));
 export const fmtL = ml => (num(ml) / 1000).toFixed(2).replace(".", ",");
