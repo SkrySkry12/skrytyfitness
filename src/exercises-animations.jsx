@@ -113,6 +113,13 @@ const tower = x => [P.line(x, 20, x, GROUND, 5), P.line(x - 14, 20, x + 4, 20, 5
 const seated = (extra = {}) => merge(SEAT, extra);
 const standCurl = { a: merge(STAND, { hand: [106, 126], hand2: [104, 127] }), b: merge(STAND, { hand: [113, 80], hand2: [111, 82] }) };
 
+// Two-phase gait cycle (A -> B -> A) used by running / walking.
+const cycle2 = (a, b) => [{ at: 0, pose: a }, { at: 50, pose: b }, { at: 100, pose: a }];
+const RUN_A = { hip: [100, 126], t: 170, foot: [128, 184], ft: 90, foot2: [72, 196], ft2: 35, ua: -35, fa: 50, ua2: 40, fa2: 125 };
+const RUN_B = { hip: [100, 122], t: 170, foot: [72, 196], ft: 35, foot2: [128, 184], ft2: 90, ua: 40, fa: 125, ua2: -35, fa2: 50 };
+const WALK_A = { hip: [100, 124], t: 178, foot: [118, 198], ft: 90, foot2: [84, 198], ft2: 60, ua: -20, fa: -8, ua2: 20, fa2: 35 };
+const WALK_B = { hip: [100, 124], t: 178, foot: [84, 198], ft: 60, foot2: [118, 198], ft2: 90, ua: 20, fa: 35, ua2: -20, fa2: -8 };
+
 const ANIMS = {
   "biceps-curl": { dur: 2.8, handProp: "dumbbell", frames: pingpong(standCurl.a, standCurl.b) },
   "hammer-curl": { dur: 2.8, handProp: "dumbbell-v", frames: pingpong(standCurl.a, standCurl.b) },
@@ -350,7 +357,57 @@ const ANIMS = {
       { at: 50, pose: { hip: [100, 113], t: 180, th: 0, sh: 0, ft: 60, ua: -8, fa: 60 } },
       { at: 100, pose: merge(STAND, { ua: -8, fa: 50, hand: null }) }
     ]
-  }
+  },
+  // ---------- cardio ----------
+  "running": { dur: 1.0, frames: cycle2(RUN_A, RUN_B) },
+  "treadmill-run": {
+    dur: 1.0, frames: cycle2(RUN_A, RUN_B),
+    props: [P.rect(46, 201, 120, 6, 3), P.line(160, 201, 170, 118, 5), P.line(170, 118, 150, 114, 5)]
+  },
+  "walking": { dur: 2.0, frames: cycle2(WALK_A, WALK_B) },
+  "cycling": (() => {
+    const crank = [112, 180], r = 15;
+    const at = a => [crank[0] + r * Math.sin(rad(a)), crank[1] + r * Math.cos(rad(a))];
+    const base = { hip: [86, 138], t: 140, hand: [146, 110], ft: 90, ft2: 90 };
+    const pose = a => ({ ...base, foot: at(a), foot2: at(a + 180) });
+    return {
+      dur: 1.4,
+      props: [P.rect(68, 141, 32, 6, 3), P.line(86, 147, 104, 178, 5), P.line(112, 180, 112, GROUND, 5),
+        P.line(84, GROUND, 150, GROUND, 5), P.line(112, 180, 142, 112, 5), P.line(138, 110, 154, 110, 5), P.circle(112, 180, 5)],
+      frames: [0, 90, 180, 270, 360].map((a, i) => ({ at: i * 25, pose: pose(90 + a) }))
+    };
+  })(),
+  "stepping": (() => {
+    const up = [126, 177], down = [102, 199];
+    const base = { hip: [100, 123], t: 176, hand: [132, 118], ft: 90, ft2: 90 };
+    const a = { ...base, foot: down, foot2: up };
+    const b = { ...base, hip: [100, 121], foot: up, foot2: down };
+    return {
+      dur: 1.6, frames: pingpong(a, b, 8),
+      props: [P.rect(118, 186, 52, 17, 2), P.line(126, 118, 172, 118, 5), P.line(168, 118, 168, 186, 5)]
+    };
+  })(),
+  "swimming-crawl": (() => {
+    const base = { hip: [84, 152], t: 90, th: -94, sh: -94, th2: -88, sh2: -88, ft: -60, ft2: -60 };
+    const arms = [[90, -90], [0, 180], [-90, 90], [180, 0], [90, -90]];
+    const kick = i => (i % 2 ? { th: -86, sh: -86, th2: -96, sh2: -96 } : {});
+    return {
+      dur: 2.0,
+      props: [P.line(4, 140, 196, 140, 2)],
+      frames: arms.map(([u1, u2], i) => ({ at: i * 25, pose: { ...base, ...kick(i), ua: u1, fa: u1, ua2: u2, fa2: u2 } }))
+    };
+  })(),
+  "elliptical-motion": (() => {
+    const base = { hip: [100, 120], t: 178, ft: 90, ft2: 90 };
+    const feet = [[[120, 190], [82, 186]], [[100, 194], [102, 180]], [[82, 186], [120, 190]], [[102, 180], [100, 194]]];
+    const hands = [[[112, 106], [134, 98]], [[123, 102], [123, 102]], [[134, 98], [112, 106]], [[123, 102], [123, 102]]];
+    const pose = i => ({ ...base, foot: feet[i % 4][0], foot2: feet[i % 4][1], hand: hands[i % 4][0], hand2: hands[i % 4][1] });
+    return {
+      dur: 1.8, handProp: "handle",
+      props: [P.line(66, GROUND, 162, GROUND, 5), P.line(70, 198, 150, 192, 4), P.line(150, 192, 158, 84, 5), P.line(158, 84, 144, 80, 5)],
+      frames: [0, 1, 2, 3, 4].map(i => ({ at: i * 25, pose: pose(i) }))
+    };
+  })()
 };
 
 export const ANIMATION_IDS = Object.keys(ANIMS);

@@ -751,3 +751,10 @@ body.has-rest-timer .toast-stack { bottom: calc(146px + var(--safe-bottom)); }
 .cardio-done { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 14px; border: 1px dashed var(--border, rgba(255,255,255,.2)); background: transparent; color: inherit; font-weight: 700; cursor: pointer; }
 .cardio-done.on { border-style: solid; border-color: var(--success, #22c55e); background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent); color: var(--success, #22c55e); }
 @media (min-width: 640px) { .cardio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cardio-done { grid-column: span 1; } }
+
+/* Alternatywa — zamiana ćwiczenia na alternatywne */
+.exercise-actions { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.alt-btn { min-height: 34px; padding: 0 10px; font-size: var(--fs-xs); background: var(--surface-2); color: var(--text); border-color: var(--border, color-mix(in srgb, var(--text) 15%, transparent)); }
+.alt-btn:active { transform: scale(.97); }
+.swapped-tag { align-self: flex-start; margin-top: 4px; font-size: var(--fs-xs); font-weight: 700; color: var(--accent); background: var(--accent-glow); border-radius: 99px; padding: 2px 8px; }
+.row.gap.wrap-end { flex-wrap: wrap; justify-content: flex-end; }

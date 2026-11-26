@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Copy, Minus, Pencil, PlayCircle, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Minus, Pencil, PlayCircle, Plus, Shuffle, Trash2 } from "lucide-react";
 import { useApp } from "../context.js";
 import { useToast } from "../components/Toast.jsx";
 import { BottomSheet } from "../components/BottomSheet.jsx";
 import { RestTimer } from "../components/RestTimer.jsx";
 import { Spinner } from "../components/Spinner.jsx";
 import { ExerciseDemo } from "../exercises-animations.jsx";
-import { PLANS, EXERCISES, MUSCLES, CARDIO_EXERCISES, CARDIO_ICONS, exerciseLabel, exerciseKey, findExercise, animationFor, parseScheme, isCardio, cardioSummary } from "../lib/exercises.js";
+import { PLANS, EXERCISES, MUSCLES, CARDIO_EXERCISES, CARDIO_ICONS, exerciseLabel, exerciseKey, findExercise, alternativesFor, animationFor, parseScheme, isCardio, cardioSummary } from "../lib/exercises.js";
 import { dayKey, formatLong, formatDayMonth, shiftMonth } from "../lib/dates.js";
 import { fmtKg, num, pl } from "../lib/format.js";
 
@@ -70,6 +70,7 @@ export function Training() {
   const [restKey, setRestKey] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [cardio, setCardio] = useState([]); // cardio items for the selected day (independent of the plan)
+  const [swaps, setSwaps] = useState({}); // { [plan]: { [planExId]: alternativeExId } } — "Alternatywa" button
 
   const workouts = useMemo(() => entries.filter(e => e.kind === "workout"), [entries]);
   const workoutsByDate = useMemo(() => workouts.reduce((acc, e) => { (acc[dayKey(e)] ??= []).push(e); return acc; }, {}), [workouts]);
@@ -77,9 +78,13 @@ export function Training() {
 
   // Items = plan exercises + custom ones (from this session and from the entry being edited).
   const items = useMemo(() => {
-    const base = PLANS[plan].items.map(([exId, scheme]) => {
+    const base = PLANS[plan].items.map(([planId, scheme]) => {
+      const exId = EXERCISES[swaps[plan]?.[planId]] ? swaps[plan][planId] : planId;
       const ex = EXERCISES[exId];
-      return { key: exId, exId, name: exerciseLabel(ex), short: ex.name, original: ex.original, muscle: ex.muscle, scheme, custom: false };
+      return {
+        key: exId, exId, name: exerciseLabel(ex), short: ex.name, original: ex.original, muscle: ex.muscle, scheme, custom: false,
+        ...(exId !== planId ? { swappedFrom: planId } : {})
+      };
     });
     const saved = (editingEntry?.data?.plan === plan ? editingEntry.data.exercises || [] : [])
       .filter(ex => ex.custom && !isCardio(ex))
@@ -90,7 +95,7 @@ export function Training() {
     const all = [...base];
     for (const c of extras) if (!all.some(i => i.key === c.key)) all.push(c);
     return all;
-  }, [plan, editingEntry, customExercises]);
+  }, [plan, editingEntry, customExercises, swaps]);
 
   // Last done sets per exercise key, from workouts before the selected day (or other entries that day).
   const previous = useMemo(() => {
@@ -147,6 +152,16 @@ export function Training() {
       }
       loaded[exerciseKey(ex)] = (ex.sets || []).map(s => ({ kg: String(s.kg ?? ""), reps: String(s.reps ?? ""), done: Boolean(s.done) }));
     }
+    // Saved alternatives (e.g. Hip Thrust instead of Glute Bridge) → restore the swap on the plan position.
+    if (PLANS[p]) {
+      const planSwaps = {};
+      for (const [planId] of PLANS[p].items) {
+        if (loaded[planId]) continue;
+        const alt = alternativesFor(planId).find(a => loaded[a.id]);
+        if (alt) planSwaps[planId] = alt.id;
+      }
+      setSwaps(cur => ({ ...cur, [p]: planSwaps }));
+    }
     setCardio(loadedCardio);
     setWorkoutDate(day); setMonth(day.slice(0, 7)); setPlan(p);
     setEditingId(entry.id); setSets(loaded); setDirty(false);
@@ -181,6 +196,54 @@ export function Training() {
     setSets(cur => { const next = { ...cur }; delete next[item.key]; return next; });
     setDirty(true);
   };
+
+  // Candidates for the "Alternatywa" button: the original exercise + its library alternatives.
+  const altCandidates = item => {
+    const orig = item.swappedFrom || item.exId;
+    if (!orig) return [];
+    const alts = alternativesFor(orig);
+    return alts.length ? [orig, ...alts.map(a => a.id)] : [];
+  };
+  const nextAlternative = (item, taken) => {
+    const list = altCandidates(item);
+    const start = list.indexOf(item.exId);
+    for (let i = 1; i < list.length; i++) {
+      const id = list[(start + i) % list.length];
+      if (!taken.has(id)) return id;
+    }
+    return null;
+  };
+  const moveSets = (fromKey, toKey) => setSets(cur => {
+    const next = { ...cur };
+    if (next[fromKey]) next[toKey] = next[fromKey];
+    delete next[fromKey];
+    return next;
+  });
+  const swapExercise = item => {
+    const next = nextAlternative(item, new Set(items.filter(i => i !== item).map(i => i.key)));
+    if (!next) { toast("Pozostałe alternatywy są już w tym planie", { type: "info" }); return; }
+    const orig = item.swappedFrom || item.exId;
+    setSwaps(cur => {
+      const planSwaps = { ...(cur[plan] || {}) };
+      if (next === orig) delete planSwaps[orig]; else planSwaps[orig] = next;
+      return { ...cur, [plan]: planSwaps };
+    });
+    moveSets(item.key, next); setDirty(true);
+    toast(next === orig ? `Przywrócono: ${EXERCISES[next].name}` : `Zamieniono na: ${EXERCISES[next].name}`, { type: "info" });
+  };
+  const swapCardio = item => {
+    const next = nextAlternative(item, new Set(cardio.filter(c => c !== item).map(c => c.key)));
+    if (!next) { toast("Pozostałe alternatywy są już dodane", { type: "info" }); return; }
+    const orig = item.swappedFrom || item.exId;
+    const swapped = { ...cardioItem(EXERCISES[next]), ...(next !== orig ? { swappedFrom: orig } : {}) };
+    setCardio(cur => cur.map(c => (c.key === item.key ? swapped : c)));
+    moveSets(item.key, next); setDirty(true);
+    toast(`Zamieniono na: ${EXERCISES[next].name}`, { type: "info" });
+  };
+  const altButton = (item, onSwap) => altCandidates(item).length > 0 && (
+    <button type="button" className="demo-btn alt-btn" onClick={() => onSwap(item)} title="Alternatywa"
+      aria-label={`Zamień ${item.short} na alternatywne ćwiczenie`}><Shuffle size={16} /> Alternatywa</button>
+  );
 
   const addCustomExercise = () => {
     const typed = newEx.name.trim();
@@ -313,8 +376,12 @@ export function Training() {
                 <b>{item.short}</b>
                 {item.original && <small className="muted">({item.original})</small>}
                 <span className="muscle-tag">{item.muscle}{item.custom ? " · własne" : ""} · plan: {item.scheme}</span>
+                {item.swappedFrom && <span className="swapped-tag">zamienione · zamiast: {EXERCISES[item.swappedFrom].name}</span>}
               </div>
-              <button type="button" className="demo-btn" onClick={() => setDemo(item)} aria-label={`Pokaż demo: ${item.short}`}><PlayCircle size={18} /> Demo</button>
+              <div className="exercise-actions">
+                <button type="button" className="demo-btn" onClick={() => setDemo(item)} aria-label={`Pokaż demo: ${item.short}`}><PlayCircle size={18} /> Demo</button>
+                {altButton(item, swapExercise)}
+              </div>
             </div>
             {prev && (
               <div className="previous-result">
@@ -381,9 +448,11 @@ export function Training() {
                 <b><span aria-hidden="true">{CARDIO_ICONS[item.exId] || "❤️"}</span> {item.short}</b>
                 {item.original && <small className="muted">({item.original})</small>}
                 <span className="muscle-tag cardio-tag">Cardio{item.custom ? " · własne" : ""}</span>
+                {item.swappedFrom && <span className="swapped-tag">zamienione · zamiast: {EXERCISES[item.swappedFrom].name}</span>}
               </div>
-              <div className="row gap">
+              <div className="row gap wrap-end">
                 <button type="button" className="demo-btn" onClick={() => setDemo(item)} aria-label={`Pokaż wskazówki: ${item.short}`}><PlayCircle size={18} /> Demo</button>
+                {altButton(item, swapCardio)}
                 <button type="button" className="icon-btn" onClick={() => removeCardio(item)} aria-label={`Usuń cardio: ${item.short}`}><Trash2 size={16} /></button>
               </div>
             </div>

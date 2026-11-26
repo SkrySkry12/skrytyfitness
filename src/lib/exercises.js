@@ -1,30 +1,30 @@
 // Exercise library: Polish name + original name, muscle group, animation id and a short technique note.
 // `aliases` keep compatibility with names saved by older app versions (e.g. "Chest Press").
 
-const E = (id, name, original, muscle, anim, tips, aliases = []) => ({ id, name, original, muscle, anim, tips, aliases });
+const E = (id, name, original, muscle, anim, tips, aliases = [], alts = []) => ({ id, name, original, muscle, anim, tips, aliases, alts });
 
 // Cardio exercise constructor (cardio:true, unit used in the UI).
-const C = (id, name, original, anim, tips, unit = "min") => ({ id, name, original, muscle: "Cardio", anim, tips, aliases: [], cardio: true, unit });
+const C = (id, name, original, anim, tips, unit = "min", alts = []) => ({ id, name, original, muscle: "Cardio", anim, tips, aliases: [], cardio: true, unit, alts });
 
 export const EXERCISES = Object.fromEntries([
   // --- Cardio ---
-  C("treadmill", "Bieżnia", "Treadmill", "jump-rope",
+  C("treadmill", "Bieżnia", "Treadmill", "treadmill-run",
     "Zacznij od marszu (5 km/h) i stopniowo zwiększaj tempo. Wyprostowana postawa, wzrok przed siebie. Możesz ustawić nachylenie (1–3%) dla lepszego efektu."),
-  C("elliptical", "Orbitrek", "Elliptical Trainer", "mountain-climbers",
+  C("elliptical", "Orbitrek", "Elliptical Trainer", "elliptical-motion",
     "Stopy pewnie na platformach, chwyć uchwyty. Pełny ruch eliptyczny, angażuj zarówno ręce jak i nogi. Zacznij od niskiego oporu i stopniowo go zwiększaj."),
-  C("stationary-bike", "Rower stacjonarny", "Stationary Bike", "squats",
+  C("stationary-bike", "Rower stacjonarny", "Stationary Bike", "cycling",
     "Ustaw siodełko tak, by przy wyprostanej nodze była lekko ugięta. Plecy proste, łokcie miękko ugięte. Zacznij od niskiego oporu i zwiększaj co kilka minut."),
-  C("recumbent-bike", "Rower poziomy (leżący)", "Recumbent Bike", "squats",
+  C("recumbent-bike", "Rower poziomy (leżący)", "Recumbent Bike", "cycling",
     "Rower poziomy jest łagodniejszy dla pleców i kolan. Pięty na pedałach, plecy oparte o oparcie. Dobry wybór dla osób z problemami kręgosłupa."),
   C("rowing-machine", "Wioślarz (ergometr)", "Rowing Machine", "seated-row",
     "Pchaj nogami, potem dopiero odchylaj tułów i przyciągaj uchwyt do brzucha. Powrót: najpierw ręce, potem tułów, na końcu ugnij kolana. Moc pochodzi głównie z nóg."),
-  C("stair-climber", "Stepowanie na maszynie", "Stair Climber", "squats",
+  C("stair-climber", "Stepowanie na maszynie", "Stair Climber", "stepping",
     "Chwyć uchwyty lekko, nie opieraj się o nie całym ciężarem. Pełne kroki, nie tylko końcówkami stóp. Tempo umiarkowane – masz poczuć lekką zadyszkę."),
-  C("outdoor-run", "Bieganie (na zewnątrz)", "Outdoor Run", "jump-rope",
+  C("outdoor-run", "Bieganie (na zewnątrz)", "Outdoor Run", "running",
     "Ląduj na środku stopy, nie pięcie. Ramiona pod kątem 90°, nie skrzyżowane przed ciałem. Zacznij wolno i stopniowo przyspieszaj. Odpowiednia rozgrzewka chroni kolana."),
-  C("outdoor-walk", "Spacer / szybki marsz", "Brisk Walk", "lunges",
+  C("outdoor-walk", "Spacer / szybki marsz", "Brisk Walk", "walking",
     "Szybki marsz to świetne cardio dla każdego. Wyprostowana sylwetka, aktywny krok z pięty do palców. Cel: lekka zadyszka, ale możliwość mówienia zdaniami."),
-  C("swimming", "Pływanie", "Swimming", "face-pull",
+  C("swimming", "Pływanie", "Swimming", "swimming-crawl",
     "Skup się na technice – poprawna technika ważniejsza od szybkości. Angażuje całe ciało przy minimalnym obciążeniu stawów. Zmieniaj style (kraul, grzbiet, żabka)."),
   C("jump-rope-cardio", "Skakanka (cardio)", "Jump Rope Cardio", "jump-rope",
     "Skocz na palcach, lekko uginając kolana przy lądowaniu. Nadgarstki kręcą liną, nie całe ramiona. Zacznij od 30 s i stopniowo wydłużaj czas.", "min"),
@@ -147,6 +147,40 @@ export const EXERCISES = Object.fromEntries([
     "Trzymaj łokcie blisko tułowia, kręć skakanką nadgarstkami. Skacz nisko, lądując miękko na śródstopiu. Zacznij od krótkich serii z przerwami.")
 ].map(ex => [ex.id, ex]));
 
+// Alternative exercises (ids) offered by the "Alternatywa" button on workout cards.
+const ALTS = {
+  "glute-bridge": ["hip-thrust"], "hip-thrust": ["glute-bridge"],
+  "chest-press": ["db-bench-press", "push-ups"], "db-bench-press": ["chest-press", "push-ups", "pec-deck"],
+  "push-ups": ["chest-press", "db-bench-press", "wall-pushup"], "wall-pushup": ["push-ups", "chair-pushups"],
+  "chair-pushups": ["push-ups", "wall-pushup"],
+  "lat-pulldown": ["pull-up", "assisted-pull-up"], "pull-up": ["lat-pulldown", "assisted-pull-up"],
+  "assisted-pull-up": ["pull-up", "lat-pulldown"],
+  "seated-row": ["australian-row"], "australian-row": ["seated-row"],
+  "biceps-curl": ["hammer-curl", "machine-curl", "cable-curl"], "hammer-curl": ["biceps-curl", "cable-curl"],
+  "machine-curl": ["biceps-curl", "cable-curl"], "cable-curl": ["biceps-curl", "hammer-curl"],
+  "triceps-pushdown": ["triceps-machine", "chair-dips"], "triceps-machine": ["triceps-pushdown", "chair-dips"],
+  "chair-dips": ["triceps-pushdown", "triceps-machine"],
+  "shoulder-press": ["lateral-raise"], "lateral-raise": ["shoulder-press"],
+  "leg-press": ["smith-squat", "hack-squat", "squats"], "smith-squat": ["leg-press", "hack-squat"],
+  "hack-squat": ["leg-press", "smith-squat"],
+  "squats": ["chair-squat", "jump-squats"], "chair-squat": ["squats"], "jump-squats": ["squats", "burpees"],
+  "seated-leg-curl": ["lying-leg-curl"], "lying-leg-curl": ["seated-leg-curl"],
+  "lunges-in-place": ["db-lunges"], "db-lunges": ["lunges-in-place"],
+  "rdl": ["lying-leg-curl", "seated-leg-curl"],
+  "standing-calves": ["calf-machine"], "calf-machine": ["standing-calves"],
+  "plank": ["knee-plank", "side-plank"], "knee-plank": ["plank", "side-plank"], "side-plank": ["plank", "knee-plank"],
+  "burpees": ["mountain-climbers", "jump-squats"], "mountain-climbers": ["burpees", "plank"],
+  "jump-rope": ["jump-squats", "burpees"],
+  // cardio
+  "treadmill": ["outdoor-run", "jump-rope-cardio"], "outdoor-run": ["treadmill", "jump-rope-cardio"],
+  "stationary-bike": ["recumbent-bike"], "recumbent-bike": ["stationary-bike"],
+  "stair-climber": ["treadmill", "outdoor-run"], "outdoor-walk": ["treadmill", "outdoor-run"],
+  "jump-rope-cardio": ["treadmill", "outdoor-run"], "elliptical": ["treadmill"]
+};
+for (const [id, list] of Object.entries(ALTS)) {
+  if (EXERCISES[id]) EXERCISES[id].alts = [...new Set([...EXERCISES[id].alts, ...list])].filter(a => a !== id && EXERCISES[a]);
+}
+
 export const exerciseLabel = ex => (ex ? `${ex.name} (${ex.original})` : "");
 
 const norm = s => String(s || "").toLocaleLowerCase("pl-PL").replace(/\s+/g, " ").trim();
@@ -163,6 +197,14 @@ export function findExercise(nameOrId) {
   const inParens = key.match(/\(([^)]+)\)\s*$/);
   if (inParens && lookup.has(inParens[1])) return lookup.get(inParens[1]);
   return null;
+}
+
+/** Library alternatives for an exercise (id, library object or saved item); unknown ids are skipped. */
+export function alternativesFor(ex) {
+  if (!ex) return [];
+  const lib = typeof ex === "string" ? (EXERCISES[ex] || findExercise(ex))
+    : (ex.exId && EXERCISES[ex.exId]) || (ex.id && EXERCISES[ex.id]) || findExercise(ex.name) || (Array.isArray(ex.alts) ? ex : null);
+  return (lib?.alts || []).map(id => EXERCISES[id]).filter(Boolean);
 }
 
 /** Stable comparison key for an exercise saved in a workout entry. */
