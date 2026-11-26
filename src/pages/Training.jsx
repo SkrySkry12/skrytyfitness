@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Copy, Minus, Pencil, PlayCircle, Plus, Shuffle, Trash2 } from "lucide-react";
 import { useApp } from "../context.js";
 import { useToast } from "../components/Toast.jsx";
@@ -6,9 +6,9 @@ import { BottomSheet } from "../components/BottomSheet.jsx";
 import { RestTimer } from "../components/RestTimer.jsx";
 import { Spinner } from "../components/Spinner.jsx";
 import { ExerciseDemo } from "../exercises-animations.jsx";
-import { PLANS, EXERCISES, MUSCLES, CARDIO_EXERCISES, CARDIO_ICONS, exerciseLabel, exerciseKey, findExercise, alternativesFor, animationFor, parseScheme, isCardio, cardioSummary } from "../lib/exercises.js";
+import { PLANS, EXERCISES, MUSCLES, CARDIO_EXERCISES, CARDIO_ICONS, exerciseLabel, exerciseKey, findExercise, alternativesFor, animationFor, parseScheme, isCardio, isTimed, cardioSummary } from "../lib/exercises.js";
 import { dayKey, formatLong, formatDayMonth, shiftMonth } from "../lib/dates.js";
-import { fmtKg, num, pl } from "../lib/format.js";
+import { decimalInput, fmtKg, num, pl } from "../lib/format.js";
 
 const CONFIRM_LOSE = "Stracisz niezapisane zmiany. Kontynuować?";
 
@@ -18,9 +18,15 @@ export function displayExerciseName(ex) {
   return lib ? exerciseLabel(lib) : ex?.name || "Ćwiczenie";
 }
 
-const setSummary = sets => sets.map((s, j) => `S${j + 1}: ${fmtKg(s.kg || 0)} kg × ${s.reps || 0}`).join(" · ");
+/** One set as text: "20 kg × 12" or, for timed exercises, "30 s" (+ kg if any). */
+const setText = (s, timed) => timed
+  ? `${num(s.reps)} s${num(s.kg) ? ` + ${fmtKg(s.kg)} kg` : ""}`
+  : `${fmtKg(s.kg || 0)} kg × ${s.reps || 0}`;
+const setSummary = (sets, timed) => sets.map((s, j) => `S${j + 1}: ${setText(s, timed)}`).join(" · ");
 /** Summary of a saved exercise: cardio → "20 min · 2,5 km …", strength → sets. */
-const exerciseSummary = ex => (isCardio(ex) ? cardioSummary(ex.sets?.[0]) : setSummary(ex.sets || []));
+const exerciseSummary = ex => (isCardio(ex) ? cardioSummary(ex.sets?.[0]) : setSummary(ex.sets || [], isTimed(ex)));
+/** Number shown in a text input: "5.5" → "5,5", 0/empty → "". */
+const showNum = v => (num(v) ? String(v).replace(".", ",") : "");
 const cardioCounts = s => Boolean(s?.done) || num(s?.minutes ?? s?.reps) > 0;
 const EMPTY_CARDIO = { minutes: "", km: "", level: "", incline: "", kcal: "", done: false };
 const CARDIO_FIELDS = [
@@ -31,19 +37,20 @@ const CARDIO_FIELDS = [
 const cardioItem = (lib, name) => lib
   ? { key: lib.id, exId: lib.id, name: exerciseLabel(lib), short: lib.name, original: lib.original, muscle: "Cardio", cardio: true, custom: false }
   : { key: exerciseKey({ name }), name, short: name, muscle: "Cardio", cardio: true, custom: true };
-const blank0 = v => (num(v) ? String(v) : ""); // show empty fields instead of "0"
+const blank0 = showNum; // show empty fields instead of "0"
 const toCardioForm = s => ({
   minutes: blank0(s?.minutes ?? s?.reps), km: blank0(s?.km), level: blank0(s?.level),
   incline: blank0(s?.incline), kcal: blank0(s?.kcal), done: Boolean(s?.done)
 });
 
 /** "3×10 @ 40 kg" when all done sets are equal, otherwise "10@40 · 8@42,5". */
-function compactSets(sets) {
+function compactSets(sets, timed = false) {
   if (!sets.length) return "";
   if (sets[0]?.minutes != null) return cardioSummary(sets[0]);
+  const u = timed ? " s" : "";
   const same = sets.every(s => num(s.kg) === num(sets[0].kg) && num(s.reps) === num(sets[0].reps));
-  if (same) return `${sets.length}×${num(sets[0].reps)}${num(sets[0].kg) ? ` @ ${fmtKg(sets[0].kg)} kg` : ""}`;
-  return sets.map(s => `${num(s.reps)}${num(s.kg) ? "@" + fmtKg(s.kg) : ""}`).join(" · ");
+  if (same) return `${sets.length}×${num(sets[0].reps)}${u}${num(sets[0].kg) ? ` @ ${fmtKg(sets[0].kg)} kg` : ""}`;
+  return sets.map(s => `${num(s.reps)}${u}${num(s.kg) ? "@" + fmtKg(s.kg) : ""}`).join(" · ");
 }
 
 /** Calendar badge: plan letter, "CARDIO" for cardio-only days, "A+🏃" when cardio was added to a plan. */
@@ -112,9 +119,15 @@ export function Training() {
     return map;
   }, [workouts, editingId, workoutDate]);
 
+  // Timed exercises (plank…) use seconds; if the plan scheme has no "s", start at 30 s.
+  const isTimedItem = item => isTimed(item) || parseScheme(item.scheme).seconds;
+  const defaultReps = item => {
+    const s = parseScheme(item.scheme);
+    return isTimed(item) && !s.seconds ? "30" : s.reps;
+  };
   const defaultSets = item => {
     const s = parseScheme(item.scheme);
-    return Array.from({ length: s.sets }, () => ({ kg: "", reps: s.reps, done: false }));
+    return Array.from({ length: s.sets }, () => ({ kg: "", reps: defaultReps(item), done: false }));
   };
   const getSets = item => sets[item.key] || defaultSets(item);
   const writeSets = (item, next) => { setSets(cur => ({ ...cur, [item.key]: next })); setDirty(true); };
@@ -122,7 +135,7 @@ export function Training() {
   const changeCount = (item, delta) => {
     const cur = getSets(item);
     const count = Math.max(1, Math.min(10, cur.length + delta));
-    const reps = parseScheme(item.scheme).reps;
+    const reps = defaultReps(item);
     writeSets(item, Array.from({ length: count }, (_, i) => cur[i] || { kg: cur[cur.length - 1]?.kg || "", reps, done: false }));
   };
   const updateSet = (item, index, field, value) => {
@@ -134,7 +147,7 @@ export function Training() {
     const prev = previous[item.key];
     if (!prev) return;
     if (item.cardio) { writeSets(item, [{ ...toCardioForm(prev.sets[0]), done: false }]); return; }
-    writeSets(item, prev.sets.map(s => ({ kg: String(s.kg ?? ""), reps: String(s.reps ?? ""), done: false })));
+    writeSets(item, prev.sets.map(s => ({ kg: showNum(s.kg), reps: String(s.reps ?? ""), done: false })));
   };
 
   const loadEntry = entry => {
@@ -150,7 +163,7 @@ export function Training() {
         loaded[item.key] = [toCardioForm(ex.sets?.[0])];
         continue;
       }
-      loaded[exerciseKey(ex)] = (ex.sets || []).map(s => ({ kg: String(s.kg ?? ""), reps: String(s.reps ?? ""), done: Boolean(s.done) }));
+      loaded[exerciseKey(ex)] = (ex.sets || []).map(s => ({ kg: showNum(s.kg), reps: String(s.reps ?? ""), done: Boolean(s.done) }));
     }
     // Saved alternatives (e.g. Hip Thrust instead of Glute Bridge) → restore the swap on the plan position.
     if (PLANS[p]) {
@@ -166,6 +179,14 @@ export function Training() {
     setWorkoutDate(day); setMonth(day.slice(0, 7)); setPlan(p);
     setEditingId(entry.id); setSets(loaded); setDirty(false);
   };
+
+  // Opening the tab (or entries arriving from the server later) → show the workout already saved for the selected day.
+  const autoLoaded = useRef(null);
+  useEffect(() => {
+    if (editingId || dirty || autoLoaded.current === workoutDate) return;
+    const existing = workoutsByDate[workoutDate]?.[0];
+    if (existing) { autoLoaded.current = workoutDate; loadEntry(existing); }
+  }, [workoutsByDate, workoutDate, editingId, dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeWorkoutDate = day => {
     if (!day || day === workoutDate) return;
@@ -228,7 +249,13 @@ export function Training() {
       if (next === orig) delete planSwaps[orig]; else planSwaps[orig] = next;
       return { ...cur, [plan]: planSwaps };
     });
-    moveSets(item.key, next); setDirty(true);
+    moveSets(item.key, next);
+    // Reps ↔ seconds (e.g. Mountain Climbers → Plank): reset the number so 12 reps don't become 12 s.
+    if (sets[item.key] && isTimed(item.exId) !== isTimed(next)) {
+      const reps = isTimed(next) ? (parseScheme(item.scheme).seconds ? parseScheme(item.scheme).reps : "30") : parseScheme(item.scheme).reps;
+      setSets(cur => ({ ...cur, [next]: (cur[next] || []).map(s => ({ ...s, reps })) }));
+    }
+    setDirty(true);
     toast(next === orig ? `Przywrócono: ${EXERCISES[next].name}` : `Zamieniono na: ${EXERCISES[next].name}`, { type: "info" });
   };
   const swapCardio = item => {
@@ -257,7 +284,8 @@ export function Training() {
       return;
     }
     const name = lib ? exerciseLabel(lib) : typed;
-    const scheme = `${Math.max(1, Math.min(10, Number(newEx.sets) || 3))} × ${Math.max(1, Math.min(100, Number(newEx.reps) || 10))}`;
+    const setsCount = Math.max(1, Math.min(10, Number(newEx.sets) || 3));
+    const scheme = lib?.timed ? `${setsCount} × 30 s` : `${setsCount} × ${Math.max(1, Math.min(100, Number(newEx.reps) || 10))}`;
     setCustomExercises(cur => ({ ...cur, [plan]: [...(cur[plan] || []), { name, muscle: lib?.muscle || newEx.muscle || "Inne", scheme }] }));
     setNewEx(v => ({ ...v, name: "" }));
     toast(`Dodano ćwiczenie „${name}”`, { type: "info" });
@@ -267,6 +295,7 @@ export function Training() {
     const exercises = items.map(item => ({
       ...(item.exId ? { exId: item.exId } : {}),
       name: item.name, muscle: item.muscle, custom: item.custom,
+      ...(isTimedItem(item) ? { timed: true } : {}),
       sets: getSets(item).map(s => ({ kg: num(s.kg), reps: num(s.reps), done: Boolean(s.done) }))
     })).filter(ex => ex.sets.some(s => s.done || s.kg > 0));
     const cardioDone = cardio.map(item => {
@@ -367,7 +396,8 @@ export function Training() {
       {items.map((item, idx) => {
         const list = getSets(item);
         const prev = previous[item.key];
-        const scheme = parseScheme(item.scheme);
+        const timed = isTimedItem(item);
+        const repStep = timed ? 5 : 1;
         const doneCount = list.filter(s => s.done).length;
         return (
           <article className={"card exercise-card" + (doneCount === list.length ? " complete" : "")} key={plan + item.key} style={{ animationDelay: idx * 40 + "ms" }}>
@@ -385,7 +415,7 @@ export function Training() {
             </div>
             {prev && (
               <div className="previous-result">
-                <span>Ostatnio ({formatDayMonth(prev.date)}): <b>{compactSets(prev.sets)}</b></span>
+                <span>Ostatnio ({formatDayMonth(prev.date)}): <b>{compactSets(prev.sets, timed)}</b></span>
                 <button type="button" className="link-btn" onClick={() => copyPrevious(item)}><Copy size={13} /> Wpisz to samo</button>
               </div>
             )}
@@ -398,15 +428,15 @@ export function Training() {
               </div>
             </div>
             <div className="set-table">
-              <div className="set-row head"><span>#</span><span>KG</span><span>{scheme.seconds ? "SEKUNDY" : "POWT."}</span><span>✓</span></div>
+              <div className="set-row head"><span>#</span><span>KG</span><span>{timed ? "CZAS (S)" : "POWT."}</span><span>✓</span></div>
               {list.map((s, i) => (
                 <div className={"set-row" + (s.done ? " done" : "")} key={i}>
                   <b>{i + 1}</b>
-                  <input aria-label={`Ciężar, seria ${i + 1}`} type="number" inputMode="decimal" min="0" step="0.5" placeholder="0" value={s.kg} onChange={e => updateSet(item, i, "kg", e.target.value)} />
+                  <input aria-label={`Ciężar, seria ${i + 1}`} type="text" inputMode="decimal" placeholder="0" value={s.kg} onChange={e => updateSet(item, i, "kg", decimalInput(e.target.value))} />
                   <div className="stepper reps">
-                    <button type="button" aria-label="Odejmij powtórzenie" onClick={() => updateSet(item, i, "reps", String(Math.max(0, num(s.reps) - 1)))}><Minus size={14} /></button>
-                    <input aria-label={`Powtórzenia, seria ${i + 1}`} type="number" inputMode="numeric" min="0" value={s.reps} onChange={e => updateSet(item, i, "reps", e.target.value)} />
-                    <button type="button" aria-label="Dodaj powtórzenie" onClick={() => updateSet(item, i, "reps", String(num(s.reps) + 1))}><Plus size={14} /></button>
+                    <button type="button" aria-label={timed ? "Odejmij 5 sekund" : "Odejmij powtórzenie"} onClick={() => updateSet(item, i, "reps", String(Math.max(0, num(s.reps) - repStep)))}><Minus size={14} /></button>
+                    <input aria-label={timed ? `Sekundy, seria ${i + 1}` : `Powtórzenia, seria ${i + 1}`} type="number" inputMode="numeric" min="0" value={s.reps} onChange={e => updateSet(item, i, "reps", e.target.value)} />
+                    <button type="button" aria-label={timed ? "Dodaj 5 sekund" : "Dodaj powtórzenie"} onClick={() => updateSet(item, i, "reps", String(num(s.reps) + repStep))}><Plus size={14} /></button>
                   </div>
                   <button type="button" className={"done-toggle" + (s.done ? " on" : "")} aria-pressed={s.done}
                     aria-label={s.done ? "Oznacz serię jako niewykonaną" : "Oznacz serię jako wykonaną"} onClick={() => updateSet(item, i, "done", !s.done)}>
@@ -466,7 +496,9 @@ export function Training() {
               {CARDIO_FIELDS.map(([field, label, unit, mode, step]) => (
                 <label className="field" key={field}>
                   <span>{label}{unit && <small> ({unit})</small>}</span>
-                  <input type="number" min="0" step={step} inputMode={mode} placeholder="0" value={c[field]} onChange={e => updateCardio(item, field, e.target.value)} />
+                  {mode === "decimal"
+                    ? <input type="text" inputMode="decimal" placeholder="0" value={c[field]} onChange={e => updateCardio(item, field, decimalInput(e.target.value))} />
+                    : <input type="number" min="0" step={step} inputMode={mode} placeholder="0" value={c[field]} onChange={e => updateCardio(item, field, e.target.value)} />}
                 </label>
               ))}
               <button type="button" className={"cardio-done" + (c.done ? " on" : "")} aria-pressed={c.done} onClick={() => updateCardio(item, "done", !c.done)}>
@@ -535,7 +567,7 @@ export function Training() {
                 <div className="preview-panel">
                   {doneEx.map((ex, i) => (
                     <div className="history-exercise" key={i}><b>{displayExerciseName(ex)}</b>
-                      <span>{isCardio(ex) ? cardioSummary(ex.sets?.[0]) : (ex.sets || []).map((s, j) => s.done ? `S${j + 1}: ${fmtKg(s.kg || 0)} kg × ${s.reps || 0}` : null).filter(Boolean).join(" · ")}</span>
+                      <span>{isCardio(ex) ? cardioSummary(ex.sets?.[0]) : (ex.sets || []).map((s, j) => s.done ? `S${j + 1}: ${setText(s, isTimed(ex))}` : null).filter(Boolean).join(" · ")}</span>
                     </div>
                   ))}
                   {!doneEx.length && <p className="muted">Brak serii oznaczonych jako wykonane w tym treningu.</p>}
