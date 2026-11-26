@@ -420,7 +420,7 @@ export function Training() {
           </label>
         </div>
         <datalist id="exercise-library">
-          {Object.values(EXERCISES).map(ex => <option key={ex.id} value={ex.name}>{ex.original}</option>)}
+          {Object.values(EXERCISES).map(ex => <option key={ex.id} value={exerciseLabel(ex)}>{ex.original}</option>)}
         </datalist>
         <small className="muted">Zacznij pisać, aby wybrać ćwiczenie z biblioteki (z animacją) albo wpisz własną nazwę.</small>
         <button type="button" className="secondary full" onClick={addCustomExercise} disabled={!newEx.name.trim()}><Plus size={16} /> Dodaj ćwiczenie</button>
