@@ -147,6 +147,10 @@ export const EXERCISES = Object.fromEntries([
     "Trzymaj łokcie blisko tułowia, kręć skakanką nadgarstkami. Skacz nisko, lądując miękko na śródstopiu. Zacznij od krótkich serii z przerwami.")
 ].map(ex => [ex.id, ex]));
 
+// Exercises done for time (seconds) instead of repetitions.
+const TIMED = ["plank", "knee-plank", "side-plank", "dead-hang", "jump-rope"];
+for (const id of TIMED) if (EXERCISES[id]) EXERCISES[id].timed = true;
+
 // Alternative exercises (ids) offered by the "Alternatywa" button on workout cards.
 const ALTS = {
   "glute-bridge": ["hip-thrust"], "hip-thrust": ["glute-bridge"],
@@ -273,6 +277,14 @@ export const PLANS = {
   HOME: { short: "DOM", name: "Trening domowy", focus: "Bez sprzętu · spokojne tempo", items: [
     ["chair-squat", "3 × 12"], ["wall-pushup", "3 × 8–12"], ["glute-bridge", "3 × 15"], ["bird-dog", "2 × 10 / strona"],
     ["lunges-in-place", "2 × 8 / noga"], ["knee-plank", "3 × 20 s"]] }
+};
+
+/** True for exercises measured in seconds (plank, dead hang…). Accepts an item, saved exercise or id. */
+export const isTimed = ex => {
+  if (!ex) return false;
+  if (typeof ex === "string") return Boolean(EXERCISES[ex]?.timed);
+  if (ex.timed) return true;
+  return Boolean(EXERCISES[ex.exId]?.timed || findExercise(ex.name)?.timed);
 };
 
 export const parseScheme = scheme => {
