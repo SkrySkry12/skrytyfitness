@@ -1,6 +1,6 @@
 // Strength / fitness goals stored per user in settings.goals.
 // Progress is always derived from saved workouts (done sets only), never stored.
-import { EXERCISES, exerciseKey } from "./exercises.js";
+import { EXERCISES, exerciseKey, isCardio } from "./exercises.js";
 import { dayKey } from "./dates.js";
 import { fmtKg, num, plural } from "./format.js";
 
@@ -117,6 +117,7 @@ export function exerciseHistory(entries) {
   const out = {};
   for (const w of workouts) {
     for (const ex of w.data?.exercises || []) {
+      if (isCardio(ex)) continue; // cardio minutes must not count as strength records
       const key = exerciseKey(ex);
       if (!key) continue;
       const rec = (out[key] ??= { kg: [], reps: [], seconds: [] });
@@ -166,7 +167,27 @@ export function totalVolume(entries) {
   let v = 0;
   for (const w of entries || []) {
     if (w.kind !== "workout") continue;
-    for (const ex of w.data?.exercises || []) for (const s of ex.sets || []) if (s.done) v += num(s.kg) * num(s.reps);
+    for (const ex of w.data?.exercises || []) {
+      if (isCardio(ex)) continue;
+      for (const s of ex.sets || []) if (s.done) v += num(s.kg) * num(s.reps);
+    }
   }
   return v;
+}
+
+/** Cardio totals from workouts: an entry counts when ticked as done or minutes were entered. */
+export function cardioTotals(entries) {
+  let sessions = 0, minutes = 0, km = 0;
+  for (const w of entries || []) {
+    if (w.kind !== "workout") continue;
+    for (const ex of w.data?.exercises || []) {
+      if (!isCardio(ex)) continue;
+      for (const s of ex.sets || []) {
+        const m = num(s.minutes ?? s.reps);
+        if (!s.done && !(m > 0)) continue;
+        sessions++; minutes += m; km += num(s.km);
+      }
+    }
+  }
+  return { sessions, minutes, km: Math.round(km * 10) / 10 };
 }

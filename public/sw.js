@@ -1,4 +1,4 @@
-const CACHE = 'skr-fitness-v8';
+const CACHE = 'skr-fitness-v9';
 const CORE = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', event => {
